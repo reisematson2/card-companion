@@ -25,7 +25,7 @@ export default function DeckListScreen() {
         {decks.length === 0 && <Text style={styles.empty}>No decks found. Tap "+ Add Deck" to begin.</Text>}
 
         {decks.map((deck) => (
-          <Link href={`/decks/${deck.id}/index`} key={deck.id} asChild>
+          <Link href={`/decks/${deck.id}`} key={deck.id} asChild>
             <Pressable style={styles.deckCard}>
               <View>
                 <Text style={styles.deckName}>{deck.name}</Text>
