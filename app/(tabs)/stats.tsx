@@ -1,41 +1,70 @@
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Dimensions, Pressable } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
 import { BarChart, PieChart } from 'react-native-chart-kit';
 import { getDecks, Deck, Match } from '../../utils/storage';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 const screenWidth = Dimensions.get('window').width;
 
 export default function StatsScreen() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [filter, setFilter] = useState<'all' | 'win' | 'loss' | 'draw'>('all');
+  const router = useRouter();
 
-  useEffect(() => {
+  const fetchDeckData = useCallback(() => {
     getDecks().then((allDecks) => {
       setDecks(allDecks);
       const allMatches = allDecks.flatMap((deck) =>
-        (deck.matches || []).map((match) => ({ ...match, deckName: deck.name }))
+        (deck.matches || []).map((match): Match & { deckName: string } => ({
+          ...match,
+          deckName: deck.name,
+        }))
       );
+      
       setMatches(allMatches);
     });
   }, []);
+
+  useEffect(fetchDeckData, []);
+  useFocusEffect(fetchDeckData);
 
   const total = matches.length;
   const wins = matches.filter((m) => m.result === 'win').length;
   const losses = matches.filter((m) => m.result === 'loss').length;
   const draws = matches.filter((m) => m.result === 'draw').length;
-  const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : 'N/A';
 
-  const bestDeck = decks.reduce((top, deck) => {
+  const filteredMatches = matches.filter((m) => (filter === 'all' ? true : m.result === filter));
+
+  const bestDeck = decks.reduce<null | { name: string; winRate: number }>((top, deck) => {
     const ms = deck.matches || [];
     const wr = ms.length > 0 ? ms.filter((m) => m.result === 'win').length / ms.length : 0;
-    return !top || wr > top.winRate ? { name: deck.name, winRate: wr * 100 } : top;
+    if (!top || wr * 100 > top.winRate) {
+      return { name: deck.name, winRate: wr * 100 };
+    }
+    return top;
   }, null);
 
-  const worstDeck = decks.reduce((worst, deck) => {
-    const ms = deck.matches || [];
-    const wr = ms.length > 0 ? ms.filter((m) => m.result === 'win').length / ms.length : Infinity;
-    return !worst || wr * 100 < worst.winRate ? { name: deck.name, winRate: wr * 100 } : worst;
-  }, null);
+  const opponentStats = new Map<string, { wins: number; total: number }>();
+  matches.forEach((m) => {
+    const name = m.opponentDeck || 'Unknown';
+    if (!opponentStats.has(name)) {
+      opponentStats.set(name, { wins: 0, total: 0 });
+    }
+    const stat = opponentStats.get(name)!;
+    if (m.result === 'win') stat.wins++;
+    stat.total++;
+  });
+
+  let worstOpponent = null;
+  for (const [name, stat] of opponentStats.entries()) {
+    if (stat.total >= 3) {
+      const winRate = (stat.wins / stat.total) * 100;
+      if (!worstOpponent || winRate < worstOpponent.winRate) {
+        worstOpponent = { name, winRate };
+      }
+    }
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -68,15 +97,29 @@ export default function StatsScreen() {
         const m = deck.matches || [];
         const wr = m.length > 0 ? Math.round((m.filter((m) => m.result === 'win').length / m.length) * 100) : 0;
         return (
-          <View key={deck.id} style={styles.deckCard}>
+          <Pressable key={deck.id} style={styles.deckCard} onPress={() => router.push(`/decks/${deck.id}`)}>
             <Text style={styles.deckTitle}>{deck.name}</Text>
             <Text style={styles.deckStats}>Matches: {m.length} | Win Rate: {wr}%</Text>
-          </View>
+          </Pressable>
         );
       })}
 
       <Text style={styles.sectionTitle}>🕒 Recent Matches</Text>
-      {matches
+      <View style={styles.filterRow}>
+        {['all', 'win', 'loss', 'draw'].map((type) => (
+          <Pressable
+            key={type}
+            onPress={() => setFilter(type as any)}
+            style={[styles.filterButton, filter === type && styles.activeFilterButton]}
+          >
+            <Text style={[styles.filterText, filter === type && styles.activeFilterText]}>
+              {type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {filteredMatches
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5)
         .map((match, index) => (
@@ -90,7 +133,9 @@ export default function StatsScreen() {
       <Text style={styles.sectionTitle}>⭐ Highlights</Text>
       <View style={styles.highlightBox}>
         {bestDeck && <Text style={styles.highlight}>🔥 Best performing deck: {bestDeck.name} ({bestDeck.winRate.toFixed(1)}% WR)</Text>}
-        {worstDeck && <Text style={styles.highlight}>🧊 Toughest deck: {worstDeck.name} ({worstDeck.winRate.toFixed(1)}% WR)</Text>}
+        {worstOpponent && worstOpponent.name && (
+          <Text style={styles.highlight}>🧊 Toughest opponent: {worstOpponent.name} ({worstOpponent.winRate.toFixed(1)}% WR)</Text>
+        )}
       </View>
     </ScrollView>
   );
@@ -122,6 +167,27 @@ const styles = StyleSheet.create({
   result: { fontWeight: 'bold', color: '#3b82f6' },
   opp: { color: '#374151' },
   date: { color: '#9ca3af', fontSize: 12 },
+  filterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 10,
+  },
+  filterButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 20,
+  },
+  activeFilterButton: {
+    backgroundColor: '#3b82f6',
+  },
+  filterText: {
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  activeFilterText: {
+    color: 'white',
+  },
   highlightBox: {
     backgroundColor: '#e0e7ff',
     padding: 16,
