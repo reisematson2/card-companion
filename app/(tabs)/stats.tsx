@@ -1,22 +1,42 @@
-import { View, Text, StyleSheet, ScrollView, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { useEffect, useState } from 'react';
 import { BarChart, PieChart } from 'react-native-chart-kit';
-import { Dimensions } from 'react-native';
+import { getDecks, Deck, Match } from '../../utils/storage';
 
 const screenWidth = Dimensions.get('window').width;
 
-const fakeDecks = [
-  { id: '1', name: 'Izzet Control', matches: 20, winRate: 70 },
-  { id: '2', name: 'Mono Red Aggro', matches: 15, winRate: 53 },
-  { id: '3', name: 'Golgari Midrange', matches: 10, winRate: 40 },
-];
-
-const fakeMatches = [
-  { id: 'm1', result: 'win', opponent: 'Dimir Control', date: '2025-04-18' },
-  { id: 'm2', result: 'loss', opponent: 'Azorius Tempo', date: '2025-04-17' },
-  { id: 'm3', result: 'win', opponent: 'Mono Green', date: '2025-04-16' },
-];
-
 export default function StatsScreen() {
+  const [decks, setDecks] = useState<Deck[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+
+  useEffect(() => {
+    getDecks().then((allDecks) => {
+      setDecks(allDecks);
+      const allMatches = allDecks.flatMap((deck) =>
+        (deck.matches || []).map((match) => ({ ...match, deckName: deck.name }))
+      );
+      setMatches(allMatches);
+    });
+  }, []);
+
+  const total = matches.length;
+  const wins = matches.filter((m) => m.result === 'win').length;
+  const losses = matches.filter((m) => m.result === 'loss').length;
+  const draws = matches.filter((m) => m.result === 'draw').length;
+  const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : 'N/A';
+
+  const bestDeck = decks.reduce((top, deck) => {
+    const ms = deck.matches || [];
+    const wr = ms.length > 0 ? ms.filter((m) => m.result === 'win').length / ms.length : 0;
+    return !top || wr > top.winRate ? { name: deck.name, winRate: wr * 100 } : top;
+  }, null);
+
+  const worstDeck = decks.reduce((worst, deck) => {
+    const ms = deck.matches || [];
+    const wr = ms.length > 0 ? ms.filter((m) => m.result === 'win').length / ms.length : Infinity;
+    return !worst || wr * 100 < worst.winRate ? { name: deck.name, winRate: wr * 100 } : worst;
+  }, null);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={styles.sectionTitle}>📊 Overall Stats</Text>
@@ -24,9 +44,9 @@ export default function StatsScreen() {
       <View style={styles.chartWrapper}>
         <PieChart
           data={[
-            { name: 'Wins', population: 25, color: '#10b981', legendFontColor: '#10b981', legendFontSize: 14 },
-            { name: 'Losses', population: 15, color: '#ef4444', legendFontColor: '#ef4444', legendFontSize: 14 },
-            { name: 'Draws', population: 2, color: '#fbbf24', legendFontColor: '#fbbf24', legendFontSize: 14 },
+            { name: 'Wins', population: wins, color: '#10b981', legendFontColor: '#10b981', legendFontSize: 14 },
+            { name: 'Losses', population: losses, color: '#ef4444', legendFontColor: '#ef4444', legendFontSize: 14 },
+            { name: 'Draws', population: draws, color: '#fbbf24', legendFontColor: '#fbbf24', legendFontSize: 14 },
           ]}
           width={screenWidth - 40}
           height={180}
@@ -44,26 +64,33 @@ export default function StatsScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>📂 Deck Performance</Text>
-      {fakeDecks.map((deck) => (
-        <View key={deck.id} style={styles.deckCard}>
-          <Text style={styles.deckTitle}>{deck.name}</Text>
-          <Text style={styles.deckStats}>Matches: {deck.matches} | Win Rate: {deck.winRate}%</Text>
-        </View>
-      ))}
+      {decks.map((deck) => {
+        const m = deck.matches || [];
+        const wr = m.length > 0 ? Math.round((m.filter((m) => m.result === 'win').length / m.length) * 100) : 0;
+        return (
+          <View key={deck.id} style={styles.deckCard}>
+            <Text style={styles.deckTitle}>{deck.name}</Text>
+            <Text style={styles.deckStats}>Matches: {m.length} | Win Rate: {wr}%</Text>
+          </View>
+        );
+      })}
 
       <Text style={styles.sectionTitle}>🕒 Recent Matches</Text>
-      {fakeMatches.map((match) => (
-        <View key={match.id} style={styles.matchItem}>
-          <Text style={styles.result}>{match.result.toUpperCase()}</Text>
-          <Text style={styles.opp}>vs {match.opponent}</Text>
-          <Text style={styles.date}>{match.date}</Text>
-        </View>
-      ))}
+      {matches
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 5)
+        .map((match, index) => (
+          <View key={index} style={styles.matchItem}>
+            <Text style={styles.result}>{match.result.toUpperCase()}</Text>
+            <Text style={styles.opp}>vs {match.opponentDeck} ({match.deckName})</Text>
+            <Text style={styles.date}>{new Date(match.date).toLocaleDateString()}</Text>
+          </View>
+        ))}
 
       <Text style={styles.sectionTitle}>⭐ Highlights</Text>
       <View style={styles.highlightBox}>
-        <Text style={styles.highlight}>🔥 Best performing deck: Izzet Control (70% WR)</Text>
-        <Text style={styles.highlight}>🧊 Toughest opponent: Golgari Midrange (30% WR)</Text>
+        {bestDeck && <Text style={styles.highlight}>🔥 Best performing deck: {bestDeck.name} ({bestDeck.winRate.toFixed(1)}% WR)</Text>}
+        {worstDeck && <Text style={styles.highlight}>🧊 Toughest deck: {worstDeck.name} ({worstDeck.winRate.toFixed(1)}% WR)</Text>}
       </View>
     </ScrollView>
   );
