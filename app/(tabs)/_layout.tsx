@@ -1,11 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Text, View } from 'react-native';
 
 export default function TabLayout() {
   return (
     <Tabs
-      screenOptions={({ route }) => ({
+      screenOptions={{
         tabBarActiveTintColor: '#1e3a8a',
         tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: {
@@ -18,24 +17,16 @@ export default function TabLayout() {
           fontSize: 12,
           fontWeight: '600',
         },
-        tabBarIcon: ({ color, size, focused }) => {
-          let iconName = 'help';
-
-          if (route.name === 'decks') {
-            iconName = 'library';
-          } else if (route.name === 'stats') {
-            iconName = 'bar-chart';
-          }
-
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
         headerShown: false,
-      })}
+      }}
     >
       <Tabs.Screen
         name="decks"
         options={{
           title: 'Decks',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="library-outline" size={size} color={color} />
+          ),
         }}
       />
 
@@ -43,8 +34,17 @@ export default function TabLayout() {
         name="stats"
         options={{
           title: 'Stats',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="bar-chart-outline" size={size} color={color} />
+          ),
         }}
       />
+
+      {/* Hide all other files or routes inside (tabs)/ */}
+      <Tabs.Screen name="index" options={{ href: null }} />
+      <Tabs.Screen name="[...catchall]" options={{ href: null }} />
+      <Tabs.Screen name="welcome" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
     </Tabs>
   );
 }
