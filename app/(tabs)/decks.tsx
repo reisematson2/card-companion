@@ -1,7 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView } from 'react-native';
-import { Deck, getDecks } from '../../../utils/storage';
+import { Deck, getDecks } from '../../utils/storage';
 
 export default function DeckListScreen() {
   const [decks, setDecks] = useState<Deck[]>([]);

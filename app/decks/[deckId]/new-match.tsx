@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, SafeAreaView, Alert } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { getDecks, saveDeck, Match, Deck } from '../../../../utils/storage';
+import { getDecks, saveDeck, Match, Deck } from '../../../utils/storage';
 import uuid from 'react-native-uuid';
 
 export default function NewMatchScreen() {
