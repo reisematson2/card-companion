@@ -9,7 +9,7 @@ export default function WelcomeScreen() {
         <Text style={styles.title}>Card Companion</Text>
         <Text style={styles.tagline}>Track your decks. Master your matchups.</Text>
 
-        <Pressable style={styles.button} onPress={() => router.replace('/decks/decks')}>
+        <Pressable style={styles.button} onPress={() => router.replace('/decks')}>
           <Text style={styles.buttonText}>View My Decks</Text>
         </Pressable>
       </View>
