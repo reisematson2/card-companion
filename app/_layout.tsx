@@ -30,13 +30,7 @@ export default function RootLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: {
-          backgroundColor: '#ffffff', // white header
-        },
-        headerTintColor: '#1e3a8a',   // deep blue text/icons
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
+        headerShown: false, // prevent double headers
       }}
     />
   );

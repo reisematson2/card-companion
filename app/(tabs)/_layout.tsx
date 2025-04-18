@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function TabLayout() {
   return (
     <Tabs
-      screenOptions={{
+      screenOptions={({ route }) => ({
         tabBarActiveTintColor: '#1e3a8a',
         tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: {
@@ -17,11 +17,29 @@ export default function TabLayout() {
           fontSize: 12,
           fontWeight: '600',
         },
-        headerShown: false,
-      }}
+        headerStyle: {
+          backgroundColor: '#ffffff',
+        },
+        headerTitleStyle: {
+          fontWeight: 'bold',
+          color: '#1e3a8a',
+        },
+        headerTintColor: '#1e3a8a',
+      })}
     >
       <Tabs.Screen
-        name="decks"
+        name="index"
+        options={{
+          title: 'Home',
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="decks/index"
         options={{
           title: 'Decks',
           tabBarLabel: 'Decks',
@@ -32,7 +50,7 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="stats"
+        name="stats/index"
         options={{
           title: 'Stats',
           tabBarLabel: 'Stats',
@@ -44,6 +62,7 @@ export default function TabLayout() {
 
       {/* Hide nested detail/edit screens from bottom tabs */}
       <Tabs.Screen name="decks/[deckId]" options={{ href: null }} />
+      <Tabs.Screen name="decks/[deckId]/[deckID]" options={{ href: null }} />
       <Tabs.Screen name="decks/[deckId]/edit" options={{ href: null }} />
       <Tabs.Screen name="decks/[deckId]/new-match" options={{ href: null }} />
       <Tabs.Screen name="decks/[deckId]/edit-match/[matchId]" options={{ href: null }} />
