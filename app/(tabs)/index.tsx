@@ -1,41 +1,57 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
+import { View, Text, Pressable, StyleSheet, SafeAreaView } from 'react-native';
+import { router } from 'expo-router';
 
-export default function HomeScreen() {
+export default function WelcomeScreen() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Card Companion</Text>
-      <Text style={styles.subtitle}>Level up your list with data-driven decisions.</Text>
-      <Link href="/decks/index">
-        <Text style={styles.link}>View Your Decks</Text>
-      </Link>
-    </View>
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.container}>
+        <Text style={styles.logo}>📘</Text>
+        <Text style={styles.title}>Card Companion</Text>
+        <Text style={styles.tagline}>Track your decks. Master your matchups.</Text>
+
+        <Pressable style={styles.button} onPress={() => router.replace('/decks')}>
+          <Text style={styles.buttonText}>View My Decks</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
-  
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
+    backgroundColor: '#f3f4f6',
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+  container: {
+    padding: 30,
+    alignItems: 'center',
+  },
+  logo: {
+    fontSize: 60,
     marginBottom: 10,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  link: {
-    marginTop: 20,
-    color: '#3b82f6',
+  title: {
+    fontSize: 32,
     fontWeight: 'bold',
-    fontSize: 16,
+    color: '#1e3a8a',
+    marginBottom: 10,
   },
-  
+  tagline: {
+    fontSize: 16,
+    color: '#374151',
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  button: {
+    backgroundColor: '#fbbf24',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1e3a8a',
+  },
 });

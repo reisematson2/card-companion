@@ -1,6 +1,6 @@
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, SafeAreaView } from 'react-native';
 import { getDecks, saveDeck, Deck, Match } from '../../../../../utils/storage';
 
 export default function EditMatchScreen() {
@@ -62,80 +62,117 @@ export default function EditMatchScreen() {
 
   if (!match) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.header}>Match not found.</Text>
-      </View>
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.container}>
+          <Text style={styles.title}>Match not found.</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Edit Match</Text>
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Edit Match</Text>
 
-      <TextInput
-        placeholder="Opponent Deck Name"
-        style={styles.input}
-        value={opponentDeck}
-        onChangeText={setOpponentDeck}
-      />
+        <TextInput
+          placeholder="Opponent Deck Name"
+          style={styles.input}
+          value={opponentDeck}
+          onChangeText={setOpponentDeck}
+        />
 
-      <View style={styles.row}>
+        <View style={styles.row}>
+          <TextInput
+            style={styles.smallInput}
+            placeholder="Wins"
+            keyboardType="numeric"
+            value={gameWins}
+            onChangeText={setGameWins}
+          />
+          <TextInput
+            style={styles.smallInput}
+            placeholder="Losses"
+            keyboardType="numeric"
+            value={gameLosses}
+            onChangeText={setGameLosses}
+          />
+        </View>
+
         <TextInput
-          style={styles.smallInput}
-          placeholder="Wins"
-          keyboardType="numeric"
-          value={gameWins}
-          onChangeText={setGameWins}
+          placeholder="Notes (optional)"
+          style={[styles.input, { minHeight: 80 }]}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
         />
-        <TextInput
-          style={styles.smallInput}
-          placeholder="Losses"
-          keyboardType="numeric"
-          value={gameLosses}
-          onChangeText={setGameLosses}
-        />
+
+        <Pressable style={styles.button} onPress={handleSave}>
+          <Text style={styles.buttonText}>Update Match</Text>
+        </Pressable>
       </View>
-
-      <TextInput
-        placeholder="Notes (optional)"
-        style={styles.input}
-        value={notes}
-        onChangeText={setNotes}
-        multiline
-      />
-
-      <Pressable style={styles.saveButton} onPress={handleSave}>
-        <Text style={styles.saveText}>Update Match</Text>
-      </Pressable>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
+  screen: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+  },
+  container: {
+    padding: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#1e3a8a',
+  },
   input: {
-    backgroundColor: '#f2f2f2',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#1e3a8a',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+    fontSize: 16,
+    color: '#1f2937',
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    marginBottom: 16,
   },
   smallInput: {
-    backgroundColor: '#f2f2f2',
-    borderRadius: 10,
-    padding: 15,
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#1e3a8a',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+    fontSize: 16,
+    color: '#1f2937',
     width: '48%',
   },
-  saveButton: {
-    backgroundColor: '#3b82f6',
-    padding: 15,
-    borderRadius: 10,
+  button: {
+    backgroundColor: '#fbbf24',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
   },
-  saveText: { color: 'white', fontWeight: 'bold' },
+  buttonText: {
+    fontWeight: 'bold',
+    color: '#1e3a8a',
+    fontSize: 16,
+  },
 });
