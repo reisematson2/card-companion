@@ -94,15 +94,17 @@ export default function DeckDetailScreen() {
       {opponentChartData.length > 0 && (
         <View style={styles.chartSection}>
           <Text style={styles.chartTitle}>Win Rate by Opponent Deck</Text>
-          <BarChart
-            data={{ labels: opponentChartData.map((d) => d.name.length > 10 ? d.name.slice(0, 10) + '…' : d.name), datasets: [{ data: opponentChartData.map((d) => d.winRate) }] }}
-            width={Dimensions.get('window').width - 40}
-            height={220}
-            fromZero
-            chartConfig={{ backgroundColor: '#fff', backgroundGradientFrom: '#fff', backgroundGradientTo: '#fff', decimalPlaces: 0, color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`, labelColor: () => '#333' }}
-            showValuesOnTopOfBars
-            style={{ borderRadius: 10 }}
-          />
+          <View style={{ alignItems: 'center' }}>
+            <BarChart
+              data={{ labels: opponentChartData.map((d) => d.name.length > 10 ? d.name.slice(0, 10) + '…' : d.name), datasets: [{ data: opponentChartData.map((d) => d.winRate) }] }}
+              width={Dimensions.get('window').width - 40}
+              height={220}
+              fromZero
+              chartConfig={{ backgroundColor: '#fff', backgroundGradientFrom: '#fff', backgroundGradientTo: '#fff', decimalPlaces: 0, color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`, labelColor: () => '#333' }}
+              showValuesOnTopOfBars
+              style={{ borderRadius: 10 }}
+            />
+          </View>
         </View>
       )}
 

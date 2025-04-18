@@ -1,85 +1,96 @@
 import { useLocalSearchParams, router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
-import { getDecks, saveDeck, Deck } from '../../../../utils/storage';
+import { useState, useEffect } from 'react';
+import { View, Text, TextInput, Pressable, StyleSheet, SafeAreaView } from 'react-native';
+import { Deck, getDecks, saveDeck } from '../../../../utils/storage';
 
 export default function EditDeckScreen() {
   const { deckId } = useLocalSearchParams();
   const [name, setName] = useState('');
   const [format, setFormat] = useState('');
-  const [deck, setDeck] = useState<Deck | null>(null);
 
   useEffect(() => {
     getDecks().then((decks) => {
-      const found = decks.find((d) => d.id === deckId);
-      if (found) {
-        setDeck(found);
-        setName(found.name);
-        setFormat(found.format);
+      const deck = decks.find((d) => d.id === deckId);
+      if (deck) {
+        setName(deck.name);
+        setFormat(deck.format);
       }
     });
   }, [deckId]);
 
-  const handleUpdate = async () => {
+  const handleSave = async () => {
+    const decks = await getDecks();
+    const deck = decks.find((d) => d.id === deckId);
     if (!deck) return;
-
-    const updatedDeck: Deck = {
-      ...deck,
-      name,
-      format,
-    };
-
+    const updatedDeck: Deck = { ...deck, name, format };
     await saveDeck(updatedDeck);
     router.replace(`/decks/${deck.id}`);
   };
 
-  if (!deck) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.header}>Deck not found.</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Edit Deck</Text>
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Edit Deck</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Deck Name"
-        value={name}
-        onChangeText={setName}
-      />
+        <TextInput
+          placeholder="Deck Name"
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+        />
+        <TextInput
+          placeholder="Format"
+          style={styles.input}
+          value={format}
+          onChangeText={setFormat}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Format"
-        value={format}
-        onChangeText={setFormat}
-      />
-
-      <Pressable style={styles.button} onPress={handleUpdate}>
-        <Text style={styles.buttonText}>Update Deck</Text>
-      </Pressable>
-    </View>
+        <Pressable style={styles.button} onPress={handleSave}>
+          <Text style={styles.buttonText}>Save Changes</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
+  screen: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+  },
+  container: {
+    padding: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#1e3a8a',
+  },
   input: {
-    backgroundColor: '#f2f2f2',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#1e3a8a',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+    fontSize: 16,
+    color: '#1f2937',
   },
   button: {
-    backgroundColor: '#3b82f6',
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: '#fbbf24',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
   },
-  buttonText: { color: 'white', fontWeight: 'bold' },
+  buttonText: {
+    fontWeight: 'bold',
+    color: '#1e3a8a',
+    fontSize: 16,
+  },
 });
