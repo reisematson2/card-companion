@@ -18,7 +18,7 @@ export default function DeckListScreen() {
         <Text style={styles.logoPlaceholder}>📘 Card Companion</Text>
         <Text style={styles.title}>Your Decks</Text>
 
-        <Link href="/decks/new">
+        <Link href="/app/decks/new">
           <Text style={styles.addButton}>+ Add Deck</Text>
         </Link>
 
