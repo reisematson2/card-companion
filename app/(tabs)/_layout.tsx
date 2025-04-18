@@ -60,16 +60,14 @@ export default function TabLayout() {
         }}
       />
 
-      {/* Hide nested detail/edit screens from bottom tabs */}
+      {/* Hide stack screens from tab bar */}
       <Tabs.Screen name="decks/[deckId]" options={{ href: null }} />
       <Tabs.Screen name="decks/[deckId]/edit" options={{ href: null }} />
       <Tabs.Screen name="decks/[deckId]/new-match" options={{ href: null }} />
-      <Tabs.Screen name="decks/[deckId]/edit-match/edit-match" options={{ href: null }} />
-
-      {/* Hide all other non-tab routes */}
-      <Tabs.Screen name="[...catchall]" options={{ href: null }} />
+      <Tabs.Screen name="decks/[deckId]/edit-match/[matchId]" options={{ href: null }} />
       <Tabs.Screen name="welcome" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="[...catchall]" options={{ href: null }} />
     </Tabs>
   );
 }
