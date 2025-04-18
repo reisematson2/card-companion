@@ -9,41 +9,37 @@ import uuid from 'react-native-uuid';
 export default function NewMatchScreen() {
   const { deckId } = useLocalSearchParams();
   const [opponentDeck, setOpponentDeck] = useState('');
-  const [result, setResult] = useState<'win' | 'loss'>('win');
+  const [gameWins, setGameWins] = useState('');
+  const [gameLosses, setGameLosses] = useState('');
 
   const handleSaveMatch = async () => {
-    try {
-      const decks = await getDecks();
-      const deck = decks.find((d) => d.id === deckId);
-      console.log('Matched deck:', deck);
+    const decks = await getDecks();
+    const deck = decks.find((d) => d.id === deckId);
   
-      if (!deck) {
-        console.warn('Deck not found!');
-        return;
-      }
+    if (!deck) return;
   
-      const newMatch: Match = {
-        id: uuid.v4().toString(), // ✅ safe and works in Expo
-        opponentDeck,
-        result,
-        date: new Date().toISOString(),
-      };
-      
-      console.log('New match:', newMatch);
+    const wins = parseInt(gameWins);
+    const losses = parseInt(gameLosses);
   
-      const updatedDeck: Deck = {
-        ...deck,
-        matches: [newMatch, ...(deck.matches || [])],
-      };
+    const result: Match['result'] =
+      wins === losses ? 'draw' : wins > losses ? 'win' : 'loss';
   
-      console.log('Updated deck:', updatedDeck);
+    const newMatch: Match = {
+      id: uuid.v4().toString(),
+      opponentDeck,
+      result,
+      gameWins: wins,
+      gameLosses: losses,
+      date: new Date().toISOString(),
+    };
   
-      await saveDeck(updatedDeck);
-      console.log('Deck saved!');
-      router.replace(`/decks/${deck.id}`);
-    } catch (err) {
-      console.error('Error saving match:', err);
-    }
+    const updatedDeck: Deck = {
+      ...deck,
+      matches: [newMatch, ...(deck.matches || [])],
+    };
+  
+    await saveDeck(updatedDeck);
+    router.replace(`/decks/${deck.id}`);
   };
   
 
@@ -58,20 +54,23 @@ export default function NewMatchScreen() {
         onChangeText={setOpponentDeck}
       />
 
-      <View style={styles.buttonRow}>
-        <Pressable
-          style={[styles.button, result === 'win' && styles.active]}
-          onPress={() => setResult('win')}
-        >
-          <Text style={styles.buttonText}>Win</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.button, result === 'loss' && styles.active]}
-          onPress={() => setResult('loss')}
-        >
-          <Text style={styles.buttonText}>Loss</Text>
-        </Pressable>
+      <View style={styles.row}>
+        <TextInput
+          placeholder="Game Wins"
+          keyboardType="numeric"
+          style={styles.smallInput}
+          value={gameWins}
+          onChangeText={setGameWins}
+        />
+        <TextInput
+          placeholder="Game Losses"
+          keyboardType="numeric"
+          style={styles.smallInput}
+          value={gameLosses}
+          onChangeText={setGameLosses}
+        />
       </View>
+
 
       <Pressable style={styles.saveButton} onPress={handleSaveMatch}>
         <Text style={styles.saveText}>Save Match</Text>
@@ -89,16 +88,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
   },
-  buttonRow: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 },
-  button: {
-    padding: 10,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 8,
-    width: '40%',
-    alignItems: 'center',
-  },
-  active: { backgroundColor: '#10b981' },
-  buttonText: { color: 'white', fontWeight: 'bold' },
   saveButton: {
     backgroundColor: '#3b82f6',
     padding: 15,
@@ -106,4 +95,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveText: { color: 'white', fontWeight: 'bold' },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  smallInput: {
+    backgroundColor: '#f2f2f2',
+    borderRadius: 10,
+    padding: 15,
+    width: '48%',
+  },
+  
 });

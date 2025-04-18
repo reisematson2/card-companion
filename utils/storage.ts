@@ -2,13 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Match = {
   id: string;
-  result: 'win' | 'loss' | 'draw'; // best-of-3 match result
-  gameWins: number; // 0–2
-  gameLosses: number; // 0–2
+  result: 'win' | 'loss' | 'draw';
+  gameWins: number;
+  gameLosses: number;
   opponentDeck: string;
   date: string;
   notes?: string;
 };
+
 
 
 export type Deck = {
