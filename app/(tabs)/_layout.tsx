@@ -24,6 +24,7 @@ export default function TabLayout() {
         name="decks"
         options={{
           title: 'Decks',
+          tabBarLabel: 'Decks',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="library-outline" size={size} color={color} />
           ),
@@ -34,13 +35,20 @@ export default function TabLayout() {
         name="stats"
         options={{
           title: 'Stats',
+          tabBarLabel: 'Stats',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bar-chart-outline" size={size} color={color} />
           ),
         }}
       />
 
-      {/* Hide all other files or routes inside (tabs)/ */}
+      {/* Hide nested detail/edit screens from bottom tabs */}
+      <Tabs.Screen name="decks/[deckId]" options={{ href: null }} />
+      <Tabs.Screen name="decks/[deckId]/edit" options={{ href: null }} />
+      <Tabs.Screen name="decks/[deckId]/new-match" options={{ href: null }} />
+      <Tabs.Screen name="decks/[deckId]/edit-match/[matchId]" options={{ href: null }} />
+
+      {/* Hide all other non-tab routes */}
       <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen name="[...catchall]" options={{ href: null }} />
       <Tabs.Screen name="welcome" options={{ href: null }} />
