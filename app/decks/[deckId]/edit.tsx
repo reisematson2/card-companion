@@ -1,31 +1,36 @@
-import { useState } from 'react';
+import { useLocalSearchParams, router } from 'expo-router';
+import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, SafeAreaView } from 'react-native';
-import { router } from 'expo-router';
-import { Deck, saveDeck, getDecks } from '../../../utils/storage';
-import uuid from 'react-native-uuid';
+import { Deck, getDecks, saveDeck } from '../../../utils/storage';
 
-export default function NewDeckScreen() {
+export default function EditDeckScreen() {
+  const { deckId } = useLocalSearchParams();
   const [name, setName] = useState('');
   const [format, setFormat] = useState('');
 
+  useEffect(() => {
+    getDecks().then((decks) => {
+      const deck = decks.find((d) => d.id === deckId);
+      if (deck) {
+        setName(deck.name);
+        setFormat(deck.format);
+      }
+    });
+  }, [deckId]);
+
   const handleSave = async () => {
-    if (!name || !format) return;
-    const newDeck: Deck = {
-      id: uuid.v4().toString(),
-      name,
-      format,
-      createdAt: new Date().toISOString(),
-      matches: [],
-    };
-    const existingDecks = await getDecks();
-    await saveDeck(newDeck);
-    router.replace(`/decks/${newDeck.id}`);
+    const decks = await getDecks();
+    const deck = decks.find((d) => d.id === deckId);
+    if (!deck) return;
+    const updatedDeck: Deck = { ...deck, name, format };
+    await saveDeck(updatedDeck);
+    router.replace(`/decks/${deck.id}`);
   };
 
   return (
     <SafeAreaView style={styles.screen}>
       <View style={styles.container}>
-        <Text style={styles.title}>Create New Deck</Text>
+        <Text style={styles.title}>Edit Deck</Text>
 
         <TextInput
           placeholder="Deck Name"
@@ -34,14 +39,14 @@ export default function NewDeckScreen() {
           onChangeText={setName}
         />
         <TextInput
-          placeholder="Format (Standard, Modern, etc.)"
+          placeholder="Format"
           style={styles.input}
           value={format}
           onChangeText={setFormat}
         />
 
         <Pressable style={styles.button} onPress={handleSave}>
-          <Text style={styles.buttonText}>Save Deck</Text>
+          <Text style={styles.buttonText}>Save Changes</Text>
         </Pressable>
       </View>
     </SafeAreaView>
