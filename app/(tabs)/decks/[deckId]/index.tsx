@@ -1,20 +1,13 @@
-import { useLocalSearchParams, Link } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, Pressable } from 'react-native';
+import { useLocalSearchParams, Link, useFocusEffect } from 'expo-router';
+import { useEffect, useState, useCallback } from 'react';
+import { View, Text, Pressable, StyleSheet, Alert, ScrollView, Dimensions } from 'react-native';
 import { Deck, getDecks, saveDeck } from '../../../../utils/storage';
-import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
-import { Alert } from 'react-native';
-import { Dimensions } from 'react-native';
-import { PieChart } from 'react-native-chart-kit';
-import { BarChart } from 'react-native-chart-kit';
-
-
-
+import { PieChart, BarChart } from 'react-native-chart-kit';
 
 export default function DeckDetailScreen() {
   const { deckId } = useLocalSearchParams();
   const [deck, setDeck] = useState<Deck | null>(null);
+  const [filter, setFilter] = useState<'all' | 'win' | 'loss' | 'draw'>('all');
 
   useFocusEffect(
     useCallback(() => {
@@ -27,12 +20,10 @@ export default function DeckDetailScreen() {
 
   const handleDeleteMatch = async (matchId: string) => {
     if (!deck) return;
-
     const updatedMatches = (deck.matches || []).filter(m => m.id !== matchId);
     const updatedDeck = { ...deck, matches: updatedMatches };
-
     await saveDeck(updatedDeck);
-    setDeck(updatedDeck); // update local state immediately
+    setDeck(updatedDeck);
   };
 
   if (!deck) {
@@ -48,15 +39,13 @@ export default function DeckDetailScreen() {
   const draws = deck.matches?.filter((m) => m.result === 'draw').length || 0;
   const total = wins + losses + draws;
   const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : 'N/A';
-  // Group matches by opponent deck and calculate win rate
-  const opponentStats = new Map<string, { wins: number; losses: number; draws: number }>();
 
+  const opponentStats = new Map<string, { wins: number; losses: number; draws: number }>();
   (deck.matches || []).forEach((match) => {
     const name = match.opponentDeck || 'Unknown';
     if (!opponentStats.has(name)) {
       opponentStats.set(name, { wins: 0, losses: 0, draws: 0 });
     }
-
     const stat = opponentStats.get(name)!;
     if (match.result === 'win') stat.wins++;
     else if (match.result === 'loss') stat.losses++;
@@ -69,54 +58,25 @@ export default function DeckDetailScreen() {
       const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
       return { name, winRate };
     })
-    .sort((a, b) => b.winRate - a.winRate); // optional: sort by performance
-
-
+    .sort((a, b) => b.winRate - a.winRate);
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>{deck.name}</Text>
       <Text style={styles.format}>{deck.format}</Text>
 
-      <Link href={`/decks/${deck.id}/edit`}>
-        <Text style={styles.editLink}>✏️ Edit Deck</Text>
-      </Link>
-
-
-      <Text style={styles.stats}>
-        Matches: {total} | Wins: {wins} | Losses: {losses} | Win Rate: {winRate}%
-      </Text>
-
-      <Link href={`/decks/${deck.id}/new-match`}>
-        <Text style={styles.addMatch}>+ Add Match</Text>
-      </Link>
+      <Link href={`/decks/${deck.id}/edit`}><Text style={styles.editLink}>✏️ Edit Deck</Text></Link>
+      <Text style={styles.stats}>Matches: {total} | Wins: {wins} | Losses: {losses} | Draws: {draws} | Win Rate: {winRate}%</Text>
+      <Link href={`/decks/${deck.id}/new-match`}><Text style={styles.addMatch}>+ Add Match</Text></Link>
 
       {total > 0 && (
         <View style={styles.chartSection}>
           <Text style={styles.chartTitle}>Match Results Breakdown</Text>
           <PieChart
             data={[
-              {
-                name: 'Wins',
-                population: wins,
-                color: '#10b981',
-                legendFontColor: '#10b981',
-                legendFontSize: 14,
-              },
-              {
-                name: 'Losses',
-                population: losses,
-                color: '#ef4444',
-                legendFontColor: '#ef4444',
-                legendFontSize: 14,
-              },
-              {
-                name: 'Draws',
-                population: draws,
-                color: '#fbbf24',
-                legendFontColor: '#fbbf24',
-                legendFontSize: 14,
-              },
+              { name: 'Wins', population: wins, color: '#10b981', legendFontColor: '#10b981', legendFontSize: 14 },
+              { name: 'Losses', population: losses, color: '#ef4444', legendFontColor: '#ef4444', legendFontSize: 14 },
+              { name: 'Draws', population: draws, color: '#fbbf24', legendFontColor: '#fbbf24', legendFontSize: 14 },
             ]}
             width={Dimensions.get('window').width - 40}
             height={180}
@@ -137,25 +97,22 @@ export default function DeckDetailScreen() {
       {opponentChartData.length > 0 && (
         <View style={styles.chartSection}>
           <Text style={styles.chartTitle}>Win Rate by Opponent Deck</Text>
-
           <BarChart
             data={{
               labels: opponentChartData.map((d) => d.name.length > 10 ? d.name.slice(0, 10) + '…' : d.name),
-              datasets: [
-                {
-                  data: opponentChartData.map((d) => d.winRate),
-                },
-              ],
+              datasets: [{ data: opponentChartData.map((d) => d.winRate) }],
             }}
             width={Dimensions.get('window').width - 40}
             height={220}
             fromZero
+            yAxisLabel=""
+            yAxisSuffix="%"
             chartConfig={{
               backgroundColor: '#fff',
               backgroundGradientFrom: '#fff',
               backgroundGradientTo: '#fff',
               decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`, // blue bars
+              color: (opacity = 1) => `rgba(59, 130, 246, ${opacity})`,
               labelColor: () => '#333',
             }}
             showValuesOnTopOfBars
@@ -164,57 +121,58 @@ export default function DeckDetailScreen() {
         </View>
       )}
 
-      <FlatList
-        data={deck.matches || []}
-        keyExtractor={(item, index) => item.id || index.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.matchCard}>
-            <View style={styles.matchHeader}>
-              <Link href={`/decks/${deck.id}/edit-match/${item.id}`} asChild>
-                <Pressable style={{ flex: 1 }}>
-                  <View>
-                    <Text style={styles.result}>
-                      {item.result.toUpperCase()} ({item.gameWins}-{item.gameLosses})
-                    </Text>
-                    <Text style={styles.opp}>vs {item.opponentDeck}</Text>
-                    {item.notes ? <Text style={styles.notes}>📝 {item.notes}</Text> : null}
-                    <Text style={styles.date}>{new Date(item.date).toLocaleDateString()}</Text>
-                  </View>
-                </Pressable>
-              </Link>
+      <View style={styles.filterRow}>
+        {['all', 'win', 'loss', 'draw'].map((type) => (
+          <Pressable
+            key={type}
+            onPress={() => setFilter(type as any)}
+            style={[styles.filterButton, filter === type && styles.activeFilterButton]}
+          >
+            <Text style={[styles.filterText, filter === type && styles.activeFilterText]}>
+              {type === 'all' ? 'All' : type === 'win' ? 'Wins' : type === 'loss' ? 'Losses' : 'Draws'}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
-              <Pressable
-                onPress={() => {
-                  Alert.alert(
-                    'Delete Match',
-                    'Are you sure you want to delete this match?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: () => handleDeleteMatch(item.id),
-                      },
-                    ]
-                  );
-                }}
-              >
-                <Text style={styles.delete}>🗑️</Text>
+      {(deck.matches || []).filter((m) => filter === 'all' || m.result === filter).map((item) => (
+        <View key={item.id} style={styles.matchCard}>
+          <View style={styles.matchHeader}>
+            <Link href={`/decks/${deck.id}/edit-match/${item.id}`} asChild>
+              <Pressable style={{ flex: 1 }}>
+                <View>
+                  <Text style={styles.result}>
+                    {item.result.toUpperCase()} ({item.gameWins}-{item.gameLosses})
+                  </Text>
+                  <Text style={styles.opp}>vs {item.opponentDeck}</Text>
+                  {item.notes ? <Text style={styles.notes}>📝 {item.notes}</Text> : null}
+                  <Text style={styles.date}>{new Date(item.date).toLocaleDateString()}</Text>
+                </View>
               </Pressable>
-            </View>
+            </Link>
+            <Pressable
+              onPress={() => {
+                Alert.alert('Delete Match', 'Are you sure you want to delete this match?', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => handleDeleteMatch(item.id) },
+                ]);
+              }}
+            >
+              <Text style={styles.delete}>🗑️</Text>
+            </Pressable>
           </View>
+        </View>
+      ))}
 
-        )}
-
-        ListEmptyComponent={<Text style={styles.empty}>No matches logged.</Text>}
-        style={{ marginTop: 20 }}
-      />
-    </View>
+      {(deck.matches || []).length === 0 && (
+        <Text style={styles.empty}>No matches logged.</Text>
+      )}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  container: { padding: 20 },
   title: { fontSize: 24, fontWeight: 'bold' },
   format: { fontSize: 16, color: '#666', marginBottom: 10 },
   stats: { marginBottom: 10, fontSize: 14 },
@@ -225,63 +183,25 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 10,
     borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6', // Optional: accent bar
+    borderLeftColor: '#3b82f6',
   },
-
-  result: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-
-  opp: {
-    color: '#333',
-    marginBottom: 4,
-  },
-
-  notes: {
-    color: '#555',
-    fontStyle: 'italic',
-    marginBottom: 4,
-  },
-
-  date: {
-    color: '#999',
-    fontSize: 12,
-  },
-
+  result: { fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
+  opp: { color: '#333', marginBottom: 4 },
+  notes: { color: '#555', fontStyle: 'italic', marginBottom: 4 },
+  date: { color: '#999', fontSize: 12 },
   matchHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-
-  delete: {
-    color: '#ef4444',
-    fontWeight: 'bold',
-    fontSize: 18,
-    paddingLeft: 10,
-  },
-  editLink: {
-    color: '#3b82f6',
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  empty: {
-    textAlign: 'center',
-    color: '#999',
-    fontSize: 14,
-    marginTop: 20,
-  },
-  chartSection: {
-    marginVertical: 20,
-    paddingHorizontal: 20,
-  },
-
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-
+  delete: { color: '#ef4444', fontWeight: 'bold', fontSize: 18, paddingLeft: 10 },
+  editLink: { color: '#3b82f6', fontWeight: 'bold', marginBottom: 10 },
+  empty: { textAlign: 'center', color: '#999', fontSize: 14, marginTop: 20 },
+  chartSection: { marginVertical: 20, paddingHorizontal: 20 },
+  chartTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 10 },
+  filterRow: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 10 },
+  filterButton: { paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#e5e7eb', borderRadius: 20 },
+  activeFilterButton: { backgroundColor: '#3b82f6' },
+  filterText: { fontWeight: 'bold', color: '#374151' },
+  activeFilterText: { color: 'white' },
 });
