@@ -2,7 +2,9 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native';
 import { getDecks, saveDeck, Deck, Match } from '../../../../utils/storage';
-import * as Crypto from 'expo-crypto';
+import uuid from 'react-native-uuid';
+
+
 
 export default function NewMatchScreen() {
   const { deckId } = useLocalSearchParams();
@@ -10,24 +12,40 @@ export default function NewMatchScreen() {
   const [result, setResult] = useState<'win' | 'loss'>('win');
 
   const handleSaveMatch = async () => {
-    const decks = await getDecks();
-    const deck = decks.find((d) => d.id === deckId) as Deck;
-
-    const newMatch: Match = {
-      id: await Crypto.randomUUIDAsync(),
-      opponentDeck,
-      result,
-      date: new Date().toISOString(),
-    };
-
-    const updatedDeck: Deck = {
-      ...deck,
-      matches: [newMatch, ...(deck.matches || [])],
-    };
-
-    await saveDeck(updatedDeck);
-    router.back(); // Go back to the previous screen
+    try {
+      const decks = await getDecks();
+      const deck = decks.find((d) => d.id === deckId);
+      console.log('Matched deck:', deck);
+  
+      if (!deck) {
+        console.warn('Deck not found!');
+        return;
+      }
+  
+      const newMatch: Match = {
+        id: uuid.v4().toString(), // ✅ safe and works in Expo
+        opponentDeck,
+        result,
+        date: new Date().toISOString(),
+      };
+      
+      console.log('New match:', newMatch);
+  
+      const updatedDeck: Deck = {
+        ...deck,
+        matches: [newMatch, ...(deck.matches || [])],
+      };
+  
+      console.log('Updated deck:', updatedDeck);
+  
+      await saveDeck(updatedDeck);
+      console.log('Deck saved!');
+      router.replace(`/decks/${deck.id}`);
+    } catch (err) {
+      console.error('Error saving match:', err);
+    }
   };
+  
 
   return (
     <View style={styles.container}>

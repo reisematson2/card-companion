@@ -2,6 +2,8 @@ import { View, Text, FlatList, Pressable, StyleSheet } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { useState, useCallback } from 'react';
 import { getDecks, Deck } from '../../../utils/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 export default function DeckListScreen() {
   const [decks, setDecks] = useState<Deck[]>([]);
@@ -15,6 +17,15 @@ export default function DeckListScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Your Decks</Text>
+
+      {/*to be removed once dev button isn't needed*/}
+      <Pressable style={styles.resetButton} onPress={async () => {
+        await AsyncStorage.clear();
+        setDecks([]); // clear the local state
+      }}>
+        <Text style={styles.resetText}>🗑️ Reset All Data</Text>
+      </Pressable>
+
 
       <FlatList
         data={decks}
@@ -67,4 +78,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   newDeckText: { color: 'white', fontWeight: 'bold' },
+  resetButton: {
+    //to be removed once dev button isn't needed
+    backgroundColor: '#ef4444',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  resetText: {
+    //to be removed once dev button isn't needed
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  
 });

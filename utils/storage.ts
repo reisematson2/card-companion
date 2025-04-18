@@ -2,10 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Match = {
   id: string;
-  result: 'win' | 'loss';
+  result: 'win' | 'loss' | 'draw'; // best-of-3 match result
+  gameWins: number; // 0–2
+  gameLosses: number; // 0–2
   opponentDeck: string;
   date: string;
+  notes?: string;
 };
+
 
 export type Deck = {
   id: string;
@@ -24,8 +28,20 @@ export async function getDecks(): Promise<Deck[]> {
 }
 
 export async function saveDeck(updatedDeck: Deck): Promise<void> {
+  console.log('>>> saveDeck() called'); // ← this should print no matter what
+
   const decks = await getDecks();
-  const newDecks = decks.map((d) => (d.id === updatedDeck.id ? updatedDeck : d));
-  await AsyncStorage.setItem(DECKS_KEY, JSON.stringify(newDecks));
+  const index = decks.findIndex((d) => d.id === updatedDeck.id);
+
+  if (index >= 0) {
+    decks[index] = updatedDeck;
+  } else {
+    decks.unshift(updatedDeck); // fallback
+  }
+
+  console.log('Saving this to AsyncStorage:', decks);
+
+  await AsyncStorage.setItem(DECKS_KEY, JSON.stringify(decks));
 }
+
 
