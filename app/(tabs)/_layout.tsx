@@ -39,7 +39,7 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="decks/index"
+        name="decks/decks"
         options={{
           title: 'Decks',
           tabBarLabel: 'Decks',
@@ -50,7 +50,7 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="stats/index"
+        name="stats/stats"
         options={{
           title: 'Stats',
           tabBarLabel: 'Stats',

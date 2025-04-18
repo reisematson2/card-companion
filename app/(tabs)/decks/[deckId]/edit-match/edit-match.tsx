@@ -1,7 +1,7 @@
 import { useLocalSearchParams, Link, useFocusEffect } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert, ScrollView, Dimensions } from 'react-native';
-import { Deck, getDecks, saveDeck } from '../../../../utils/storage';
+import { Deck, getDecks, saveDeck } from '../../../../../utils/storage';
 import { PieChart, BarChart } from 'react-native-chart-kit';
 
 export default function DeckDetailScreen() {
