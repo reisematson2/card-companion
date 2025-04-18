@@ -25,6 +25,7 @@ export default function TabLayout() {
           color: '#1e3a8a',
         },
         headerTintColor: '#1e3a8a',
+        headerShown: true,
       })}
     >
       <Tabs.Screen

@@ -40,6 +40,10 @@ export default function DeckDetailScreen() {
   const draws = deck.matches?.filter((m) => m.result === 'draw').length || 0;
   const total = wins + losses + draws;
   const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : 'N/A';
+  const totalMatches = deck.matches?.length || 0;
+  const matchWins = deck.matches?.filter((m) => m.result === 'win').length || 0;
+  const matchWinRate = totalMatches > 0 ? (matchWins / totalMatches) * 100 : 0;
+
 
   const opponentStats = new Map<string, { wins: number; losses: number; draws: number }>();
   (deck.matches || []).forEach((match) => {
@@ -55,9 +59,9 @@ export default function DeckDetailScreen() {
 
   const opponentChartData = Array.from(opponentStats.entries()).map(([name, { wins, losses, draws }]) => {
     const total = wins + losses + draws;
-    const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
-    return { name, winRate };
-  }).sort((a, b) => b.winRate - a.winRate);
+    const matchWinRate = total > 0 ? Math.round((wins / total) * 100) : 0;
+    return { name, matchWinRate };
+  }).sort((a, b) => b.matchWinRate - a.matchWinRate);
 
   const matchData = (deck.matches || []).filter((m) => filter === 'all' ? true : m.result === filter);
 
@@ -68,7 +72,7 @@ export default function DeckDetailScreen() {
           <Text style={styles.title}>{deck.name}</Text>
           <Text style={styles.format}>{deck.format}</Text>
           <Link href={`/decks/${deck.id}/edit`}><Text style={styles.editLink}>✏️ Edit Deck</Text></Link>
-          <Text style={styles.stats}>Matches: {total} | Wins: {wins} | Losses: {losses} | Win Rate: {winRate}%</Text>
+          <Text style={styles.stats}>Matches: {total} | Wins: {wins} | Losses: {losses} | Win Rate: {matchWinRate.toFixed(1)}%</Text>
           <Link href={`/decks/${deck.id}/new-match`}><Text style={styles.addMatch}>+ Add Match</Text></Link>
 
           {total > 0 && (
@@ -103,7 +107,7 @@ export default function DeckDetailScreen() {
                 <BarChart
                   data={{
                     labels: opponentChartData.map((d) => d.name.length > 10 ? d.name.slice(0, 10) + '…' : d.name),
-                    datasets: [{ data: opponentChartData.map((d) => d.winRate) }]
+                    datasets: [{ data: opponentChartData.map((d) => d.matchWinRate) }]
                   }}
                   width={Dimensions.get('window').width - 40}
                   height={220}

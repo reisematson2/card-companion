@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
 import { getDecks, saveDeck, Deck, Match } from '../../../../utils/storage';
@@ -74,7 +74,8 @@ export default function EditMatchScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Edit Match</Text>
+      <Stack.Screen options={{ headerShown: true }} />
+      <Stack.Screen options={{ title: 'Edit Match' }} />
 
       <TextInput
         style={styles.input}
