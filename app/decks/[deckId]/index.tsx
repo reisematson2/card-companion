@@ -45,6 +45,62 @@ export default function DeckDetailScreen() {
     );
   }
 
+  const getMatchStats = () => {
+    const total = (deck.matches ?? []).length;
+    const wins = (deck.matches ?? []).filter((m) => m.result === 'win').length;
+    const losses = (deck.matches ?? []).filter((m) => m.result === 'loss').length;
+    const draws = (deck.matches ?? []).filter((m) => m.result === 'draw').length;
+  
+    const winRate = total === 0 ? 0 : (wins / total) * 100;
+  
+    const sorted = [...(deck.matches ?? [])].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    const lastPlayed = sorted[0]?.date ? new Date(sorted[0].date).toLocaleDateString() : 'N/A';
+  
+    let currentStreak = 0;
+    let bestWinStreak = 0;
+    let worstLossStreak = 0;
+    let tempWinStreak = 0;
+    let tempLossStreak = 0;
+  
+    for (const match of sorted) {
+      if (match.result === 'win') {
+        tempWinStreak++;
+        tempLossStreak = 0;
+      } else if (match.result === 'loss') {
+        tempLossStreak++;
+        tempWinStreak = 0;
+      } else {
+        tempWinStreak = 0;
+        tempLossStreak = 0;
+      }
+  
+      bestWinStreak = Math.max(bestWinStreak, tempWinStreak);
+      worstLossStreak = Math.max(worstLossStreak, tempLossStreak);
+    }
+  
+    for (const match of sorted) {
+      if (match.result === 'win') currentStreak++;
+      else break;
+    }
+  
+    return {
+      total,
+      wins,
+      losses,
+      draws,
+      winRate: winRate.toFixed(1),
+      lastPlayed,
+      currentStreak,
+      bestWinStreak,
+      worstLossStreak,
+    };
+  };
+  
+  const stats = getMatchStats();
+  
+
   const wins = deck.matches?.filter((m) => m.result === 'win').length || 0;
   const losses = deck.matches?.filter((m) => m.result === 'loss').length || 0;
   const draws = deck.matches?.filter((m) => m.result === 'draw').length || 0;
@@ -82,7 +138,16 @@ export default function DeckDetailScreen() {
         <View>
           <Text style={styles.format}>{deck.format}</Text>
           <Link href={`/decks/${deck.id}/edit`}><Text style={styles.editLink}>✏️ Edit Deck</Text></Link>
-          <Text style={styles.stats}>Matches: {total} | Wins: {wins} | Losses: {losses} | Win Rate: {matchWinRate.toFixed(1)}%</Text>
+          <View style={styles.insightBlock}>
+  <Text style={styles.insightHeader}>Match Insights</Text>
+  <Text style={styles.insightText}>Matches Played: {stats.total}</Text>
+  <Text style={styles.insightText}>Win Rate: {stats.winRate}%</Text>
+  <Text style={styles.insightText}>Last Played: {stats.lastPlayed}</Text>
+  <Text style={styles.insightText}>Current Streak: {stats.currentStreak} Win(s)</Text>
+  <Text style={styles.insightText}>Best Streak: {stats.bestWinStreak} Wins</Text>
+  <Text style={styles.insightText}>Worst Streak: {stats.worstLossStreak} Losses</Text>
+</View>
+
           <Link href={`/decks/${deck.id}/new-match`}><Text style={styles.addMatch}>+ Add Match</Text></Link>
 
           {total > 0 && (
@@ -227,4 +292,22 @@ const styles = StyleSheet.create({
   activeFilterText: {
     color: 'white',
   },
+  insightBlock: {
+    backgroundColor: '#1e2d45',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  insightHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#f5c443',
+    marginBottom: 8,
+  },
+  insightText: {
+    fontSize: 14,
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  
 });
