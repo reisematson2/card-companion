@@ -4,9 +4,12 @@ import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, SafeAreaView, FlatList } from 'react-native';
 import { Deck, getDecks } from '../../utils/storage';
+import { useNavigation } from '@react-navigation/native';
+
 
 export default function DeckListScreen() {
   const [decks, setDecks] = useState<Deck[]>([]);
+  const navigation = useNavigation();
 
   useFocusEffect(
     useCallback(() => {

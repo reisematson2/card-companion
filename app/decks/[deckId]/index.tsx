@@ -4,11 +4,21 @@ import { View, Text, FlatList, StyleSheet, Pressable, Dimensions, Alert } from '
 import { Deck, getDecks, saveDeck } from '../../../utils/storage';
 import { useFocusEffect } from 'expo-router';
 import { PieChart, BarChart } from 'react-native-chart-kit';
+import { useNavigation } from 'expo-router';
 
 export default function DeckDetailScreen() {
+
   const { deckId } = useLocalSearchParams();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [filter, setFilter] = useState<'all' | 'win' | 'loss' | 'draw'>('all');
+
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    if (deck) {
+      navigation.setOptions({ title: deck.name });
+    }
+  }, [deck]);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,9 +77,9 @@ export default function DeckDetailScreen() {
 
   return (
     <FlatList
+
       ListHeaderComponent={(
         <View>
-          <Text style={styles.title}>{deck.name}</Text>
           <Text style={styles.format}>{deck.format}</Text>
           <Link href={`/decks/${deck.id}/edit`}><Text style={styles.editLink}>✏️ Edit Deck</Text></Link>
           <Text style={styles.stats}>Matches: {total} | Wins: {wins} | Losses: {losses} | Win Rate: {matchWinRate.toFixed(1)}%</Text>
