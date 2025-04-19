@@ -42,16 +42,10 @@ export default function RootLayout() {
     >
       {/* Define screens with custom titles */}
       <Stack.Screen
-        name="(tabs)/index" // Matches app/(tabs)/index.tsx
-        options={{ title: 'Home', headerShown: false }}
-      />
-      <Stack.Screen
-        name="decks" // Matches app/(tabs)/decks.tsx
-        options={{ title: 'Decks' }}
-      />
-      <Stack.Screen
-        name="stats" // Matches app/(tabs)/stats.tsx
-        options={{ title: 'Statistics' }}
+        name="(tabs)"
+        options={{
+          headerShown: false,
+        }}
       />
     </Stack>
   );
