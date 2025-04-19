@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet, SafeAreaView, Alert } fro
 import { useLocalSearchParams, router } from 'expo-router';
 import { getDecks, saveDeck, Match, Deck } from '../../../utils/storage';
 import uuid from 'react-native-uuid';
+import { Stack } from 'expo-router';
 
 export default function NewMatchScreen() {
   const { deckId } = useLocalSearchParams();
@@ -84,6 +85,11 @@ export default function NewMatchScreen() {
     </SafeAreaView>
   );
 }
+
+// Set the header title
+NewMatchScreen.options = {
+  title: 'New Match',
+};
 
 const styles = StyleSheet.create({
   screen: {
