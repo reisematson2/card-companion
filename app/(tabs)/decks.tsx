@@ -1,6 +1,8 @@
+// app/(tabs)/decks.tsx
+
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, Pressable, SafeAreaView, FlatList } from 'react-native';
 import { Deck, getDecks } from '../../utils/storage';
 
 export default function DeckListScreen() {
@@ -12,30 +14,50 @@ export default function DeckListScreen() {
     }, [])
   );
 
+  const renderDeck = ({ item }: { item: Deck }) => {
+    const total = item.matches?.length ?? 0;
+    const wins = item.matches?.filter(m => m.result === 'win').length ?? 0;
+    const winRate = total > 0 ? `${((wins / total) * 100).toFixed(1)}%` : 'N/A';
+
+    return (
+      <Link href={`/decks/${item.id}`} asChild>
+        <Pressable style={styles.deckCard}>
+          <View>
+            <Text style={styles.deckName}>{item.name}</Text>
+            <Text style={styles.deckFormat}>{item.format}</Text>
+            <Text style={styles.deckStats}>
+              {total} matches • Win Rate: {winRate}
+            </Text>
+          </View>
+        </Pressable>
+      </Link>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.logoPlaceholder}>📘 Card Companion</Text>
-        <Text style={styles.title}>Your Decks</Text>
+      <FlatList
+        data={decks}
+        keyExtractor={d => d.id}
+        contentContainerStyle={styles.container}
+        ListHeaderComponent={
+          <View>
+            <Text style={styles.title}>Your Decks</Text>
+            {decks.length === 0 && (
+              <Text style={styles.empty}>
+                No decks found. Tap "+ Add Deck" to begin.
+              </Text>
+            )}
+          </View>
+        }
+        renderItem={renderDeck}
+      />
 
-        <Link href="/decks/new">
-          <Text style={styles.addButton}>+ Add Deck</Text>
-        </Link>
-
-        {decks.length === 0 && <Text style={styles.empty}>No decks found. Tap "+ Add Deck" to begin.</Text>}
-
-        {decks.map((deck) => (
-          <Link href={`/decks/${deck.id}`} key={deck.id} asChild>
-            <Pressable style={styles.deckCard}>
-              <View>
-                <Text style={styles.deckName}>{deck.name}</Text>
-                <Text style={styles.deckFormat}>{deck.format}</Text>
-                <Text style={styles.deckStats}>{deck.matches?.length || 0} matches logged</Text>
-              </View>
-            </Pressable>
-          </Link>
-        ))}
-      </ScrollView>
+      <Link href="/decks/new" asChild>
+        <Pressable style={styles.fab}>
+          <Text style={styles.fabIcon}>+</Text>
+        </Pressable>
+      </Link>
     </SafeAreaView>
   );
 }
@@ -47,14 +69,7 @@ const styles = StyleSheet.create({
   },
   container: {
     padding: 20,
-    paddingBottom: 40,
-  },
-  logoPlaceholder: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#1e3a8a',
-    marginBottom: 10,
-    textAlign: 'center',
+    paddingBottom: 100, // extra bottom padding for FAB
   },
   title: {
     fontSize: 20,
@@ -99,5 +114,26 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 14,
     marginTop: 10,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    backgroundColor: '#fbbf24',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  fabIcon: {
+    fontSize: 32,
+    color: 'white',
+    lineHeight: 32,
   },
 });
