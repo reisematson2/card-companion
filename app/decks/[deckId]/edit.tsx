@@ -1,4 +1,4 @@
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, SafeAreaView } from 'react-native';
 import { Deck, getDecks, saveDeck } from '../../../utils/storage';
@@ -29,9 +29,9 @@ export default function EditDeckScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
+      {/* ✅ Set screen title */}
+      <Stack.Screen options={{ title: 'Edit Deck' }} />
       <View style={styles.container}>
-        <Text style={styles.title}>Edit Deck</Text>
-
         <TextInput
           placeholder="Deck Name"
           style={styles.input}

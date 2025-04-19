@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, SafeAreaView } from 'react-native';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { Deck, saveDeck, getDecks } from '../../utils/storage';
 import uuid from 'react-native-uuid';
 
@@ -24,9 +24,9 @@ export default function NewDeckScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
+      {/* ✅ Set native header title */}
+      <Stack.Screen options={{ title: 'Create New Deck' }} />
       <View style={styles.container}>
-        <Text style={styles.title}>Create New Deck</Text>
-
         <TextInput
           placeholder="Deck Name"
           style={styles.input}

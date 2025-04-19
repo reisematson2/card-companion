@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, SafeAreaView, Alert } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { View, Text, TextInput, Pressable, StyleSheet, SafeAreaView } from 'react-native';
+import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { getDecks, saveDeck, Match, Deck } from '../../../utils/storage';
 import uuid from 'react-native-uuid';
-import { Stack } from 'expo-router';
 
 export default function NewMatchScreen() {
   const { deckId } = useLocalSearchParams();
@@ -43,6 +42,9 @@ export default function NewMatchScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
+      {/* ✅ Set screen title in native stack header */}
+      <Stack.Screen options={{ title: 'New Match' }} />
+
       <View style={styles.container}>
         <Text style={styles.title}>Add Match</Text>
 
@@ -85,11 +87,6 @@ export default function NewMatchScreen() {
     </SafeAreaView>
   );
 }
-
-// Set the header title
-NewMatchScreen.options = {
-  title: 'New Match',
-};
 
 const styles = StyleSheet.create({
   screen: {
