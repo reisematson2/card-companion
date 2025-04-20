@@ -50,20 +50,20 @@ export default function DeckDetailScreen() {
     const wins = (deck.matches ?? []).filter((m) => m.result === 'win').length;
     const losses = (deck.matches ?? []).filter((m) => m.result === 'loss').length;
     const draws = (deck.matches ?? []).filter((m) => m.result === 'draw').length;
-  
+
     const winRate = total === 0 ? 0 : (wins / total) * 100;
-  
+
     const sorted = [...(deck.matches ?? [])].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
     const lastPlayed = sorted[0]?.date ? new Date(sorted[0].date).toLocaleDateString() : 'N/A';
-  
+
     let currentStreak = 0;
     let bestWinStreak = 0;
     let worstLossStreak = 0;
     let tempWinStreak = 0;
     let tempLossStreak = 0;
-  
+
     for (const match of sorted) {
       if (match.result === 'win') {
         tempWinStreak++;
@@ -75,16 +75,16 @@ export default function DeckDetailScreen() {
         tempWinStreak = 0;
         tempLossStreak = 0;
       }
-  
+
       bestWinStreak = Math.max(bestWinStreak, tempWinStreak);
       worstLossStreak = Math.max(worstLossStreak, tempLossStreak);
     }
-  
+
     for (const match of sorted) {
       if (match.result === 'win') currentStreak++;
       else break;
     }
-  
+
     return {
       total,
       wins,
@@ -97,9 +97,33 @@ export default function DeckDetailScreen() {
       worstLossStreak,
     };
   };
-  
+
+  const getTopOpponentStats = () => {
+    const opponentStats = new Map<string, { wins: number; losses: number; draws: number }>();
+
+    (deck.matches ?? []).forEach((match) => {
+      const name = match.opponentDeck?.trim() || 'Unknown';
+      if (!opponentStats.has(name)) {
+        opponentStats.set(name, { wins: 0, losses: 0, draws: 0 });
+      }
+      const stat = opponentStats.get(name)!;
+      if (match.result === 'win') stat.wins++;
+      else if (match.result === 'loss') stat.losses++;
+      else if (match.result === 'draw') stat.draws++;
+    });
+
+    const sorted = Array.from(opponentStats.entries()).sort(
+      (a, b) => b[1].wins + b[1].losses + b[1].draws - (a[1].wins + a[1].losses + a[1].draws)
+    );
+
+    return sorted.slice(0, 5); // top 5 only
+  };
+
+  const topMatchups = getTopOpponentStats();
+
+
   const stats = getMatchStats();
-  
+
 
   const wins = deck.matches?.filter((m) => m.result === 'win').length || 0;
   const losses = deck.matches?.filter((m) => m.result === 'loss').length || 0;
@@ -139,14 +163,14 @@ export default function DeckDetailScreen() {
           <Text style={styles.format}>{deck.format}</Text>
           <Link href={`/decks/${deck.id}/edit`}><Text style={styles.editLink}>✏️ Edit Deck</Text></Link>
           <View style={styles.insightBlock}>
-  <Text style={styles.insightHeader}>Match Insights</Text>
-  <Text style={styles.insightText}>Matches Played: {stats.total}</Text>
-  <Text style={styles.insightText}>Win Rate: {stats.winRate}%</Text>
-  <Text style={styles.insightText}>Last Played: {stats.lastPlayed}</Text>
-  <Text style={styles.insightText}>Current Streak: {stats.currentStreak} Win(s)</Text>
-  <Text style={styles.insightText}>Best Streak: {stats.bestWinStreak} Wins</Text>
-  <Text style={styles.insightText}>Worst Streak: {stats.worstLossStreak} Losses</Text>
-</View>
+            <Text style={styles.insightHeader}>Match Insights</Text>
+            <Text style={styles.insightText}>Matches Played: {stats.total}</Text>
+            <Text style={styles.insightText}>Win Rate: {stats.winRate}%</Text>
+            <Text style={styles.insightText}>Last Played: {stats.lastPlayed}</Text>
+            <Text style={styles.insightText}>Current Streak: {stats.currentStreak} Win(s)</Text>
+            <Text style={styles.insightText}>Best Streak: {stats.bestWinStreak} Wins</Text>
+            <Text style={styles.insightText}>Worst Streak: {stats.worstLossStreak} Losses</Text>
+          </View>
 
           <Link href={`/decks/${deck.id}/new-match`}><Text style={styles.addMatch}>+ Add Match</Text></Link>
 
@@ -174,6 +198,25 @@ export default function DeckDetailScreen() {
               />
             </View>
           )}
+
+          <View style={styles.opponentBlock}>
+            <Text style={styles.insightHeader}>Most Played Matchups</Text>
+            {topMatchups.map(([name, stats]) => {
+              const total = stats.wins + stats.losses + stats.draws;
+              const winRate = total > 0 ? ((stats.wins / total) * 100).toFixed(1) : '0.0';
+              return (
+                <Text key={name} style={styles.insightText}>
+                  {name}: {stats.wins}W - {stats.losses}L - {stats.draws}D ({winRate}%)
+                </Text>
+              );
+            })}
+            <Link href={`/decks/${deck.id}/matchups`} asChild>
+              <Pressable style={styles.viewAllButton}>
+                <Text style={styles.viewAllText}>View All Matchups</Text>
+              </Pressable>
+            </Link>
+          </View>
+
 
           {opponentChartData.length > 0 && (
             <View style={styles.chartSection}>
@@ -308,6 +351,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ffffff',
     marginBottom: 4,
+  },
+  opponentBlock: {
+    backgroundColor: '#1b2a3a',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 20,
+  },
+  viewAllButton: {
+    marginTop: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#f5c443',
+    alignItems: 'center',
+  },
+  viewAllText: {
+    color: '#0e1a2b',
+    fontWeight: '600',
   },
   
 });

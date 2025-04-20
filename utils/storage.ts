@@ -6,6 +6,7 @@ export type Match = {
   gameWins: number;
   gameLosses: number;
   opponentDeck: string;
+  opponentDeckNormalized?: string;
   deckName: string;
   date: string;
   notes?: string;
