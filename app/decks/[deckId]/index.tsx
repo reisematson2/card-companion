@@ -5,9 +5,9 @@ import { Deck, getDecks, saveDeck } from '../../../utils/storage';
 import { useFocusEffect } from 'expo-router';
 import { PieChart, BarChart } from 'react-native-chart-kit';
 import { useNavigation } from 'expo-router';
+import { getNormalizedOpponentStats, summarizeDeckPerformance, getWinRate } from '../../../utils/normalize';
 
 export default function DeckDetailScreen() {
-
   const { deckId } = useLocalSearchParams();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [filter, setFilter] = useState<'all' | 'win' | 'loss' | 'draw'>('all');
@@ -45,123 +45,33 @@ export default function DeckDetailScreen() {
     );
   }
 
-  const getMatchStats = () => {
-    const total = (deck.matches ?? []).length;
-    const wins = (deck.matches ?? []).filter((m) => m.result === 'win').length;
-    const losses = (deck.matches ?? []).filter((m) => m.result === 'loss').length;
-    const draws = (deck.matches ?? []).filter((m) => m.result === 'draw').length;
+  const stats = summarizeDeckPerformance(deck.matches);
 
-    const winRate = total === 0 ? 0 : (wins / total) * 100;
+  const topMatchups = getNormalizedOpponentStats(deck.matches)
+    .sort((a, b) => (b.wins + b.losses + b.draws) - (a.wins + a.losses + a.draws))
+    .slice(0, 5);
 
-    const sorted = [...(deck.matches ?? [])].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-    const lastPlayed = sorted[0]?.date ? new Date(sorted[0].date).toLocaleDateString() : 'N/A';
-
-    let currentStreak = 0;
-    let bestWinStreak = 0;
-    let worstLossStreak = 0;
-    let tempWinStreak = 0;
-    let tempLossStreak = 0;
-
-    for (const match of sorted) {
-      if (match.result === 'win') {
-        tempWinStreak++;
-        tempLossStreak = 0;
-      } else if (match.result === 'loss') {
-        tempLossStreak++;
-        tempWinStreak = 0;
-      } else {
-        tempWinStreak = 0;
-        tempLossStreak = 0;
-      }
-
-      bestWinStreak = Math.max(bestWinStreak, tempWinStreak);
-      worstLossStreak = Math.max(worstLossStreak, tempLossStreak);
-    }
-
-    for (const match of sorted) {
-      if (match.result === 'win') currentStreak++;
-      else break;
-    }
-
-    return {
-      total,
-      wins,
-      losses,
-      draws,
-      winRate: winRate.toFixed(1),
-      lastPlayed,
-      currentStreak,
-      bestWinStreak,
-      worstLossStreak,
-    };
-  };
-
-  const getTopOpponentStats = () => {
-    const opponentStats = new Map<string, { wins: number; losses: number; draws: number }>();
-
-    (deck.matches ?? []).forEach((match) => {
-      const name = match.opponentDeck?.trim() || 'Unknown';
-      if (!opponentStats.has(name)) {
-        opponentStats.set(name, { wins: 0, losses: 0, draws: 0 });
-      }
-      const stat = opponentStats.get(name)!;
-      if (match.result === 'win') stat.wins++;
-      else if (match.result === 'loss') stat.losses++;
-      else if (match.result === 'draw') stat.draws++;
-    });
-
-    const sorted = Array.from(opponentStats.entries()).sort(
-      (a, b) => b[1].wins + b[1].losses + b[1].draws - (a[1].wins + a[1].losses + a[1].draws)
-    );
-
-    return sorted.slice(0, 5); // top 5 only
-  };
-
-  const topMatchups = getTopOpponentStats();
-
-
-  const stats = getMatchStats();
-
-
-  const wins = deck.matches?.filter((m) => m.result === 'win').length || 0;
-  const losses = deck.matches?.filter((m) => m.result === 'loss').length || 0;
-  const draws = deck.matches?.filter((m) => m.result === 'draw').length || 0;
-  const total = wins + losses + draws;
-  const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : 'N/A';
-  const totalMatches = deck.matches?.length || 0;
-  const matchWins = deck.matches?.filter((m) => m.result === 'win').length || 0;
-  const matchWinRate = totalMatches > 0 ? (matchWins / totalMatches) * 100 : 0;
-
-
-  const opponentStats = new Map<string, { wins: number; losses: number; draws: number }>();
-  (deck.matches || []).forEach((match) => {
-    const name = match.opponentDeck || 'Unknown';
-    if (!opponentStats.has(name)) {
-      opponentStats.set(name, { wins: 0, losses: 0, draws: 0 });
-    }
-    const stat = opponentStats.get(name)!;
-    if (match.result === 'win') stat.wins++;
-    else if (match.result === 'loss') stat.losses++;
-    else stat.draws++;
-  });
-
-  const opponentChartData = Array.from(opponentStats.entries()).map(([name, { wins, losses, draws }]) => {
-    const total = wins + losses + draws;
-    const matchWinRate = total > 0 ? Math.round((wins / total) * 100) : 0;
-    return { name, matchWinRate };
-  }).sort((a, b) => b.matchWinRate - a.matchWinRate);
+  const opponentChartData = getNormalizedOpponentStats(deck.matches)
+    .map(({ name, wins, losses, draws }) => {
+      const winRate = getWinRate(wins, losses, draws);
+      return { name, matchWinRate: Math.round(winRate) };
+    })
+    .sort((a, b) => b.matchWinRate - a.matchWinRate);
 
   const matchData = (deck.matches || []).filter((m) => filter === 'all' ? true : m.result === filter);
 
+  const wins = stats.wins;
+  const losses = stats.losses;
+  const draws = stats.draws;
+  const total = stats.total;
+
   return (
     <FlatList
-
       ListHeaderComponent={(
         <View>
           <Text style={styles.format}>{deck.format}</Text>
           <Link href={`/decks/${deck.id}/edit`}><Text style={styles.editLink}>✏️ Edit Deck</Text></Link>
+
           <View style={styles.insightBlock}>
             <Text style={styles.insightHeader}>Match Insights</Text>
             <Text style={styles.insightText}>Matches Played: {stats.total}</Text>
@@ -201,12 +111,12 @@ export default function DeckDetailScreen() {
 
           <View style={styles.opponentBlock}>
             <Text style={styles.insightHeader}>Most Played Matchups</Text>
-            {topMatchups.map(([name, stats]) => {
-              const total = stats.wins + stats.losses + stats.draws;
-              const winRate = total > 0 ? ((stats.wins / total) * 100).toFixed(1) : '0.0';
+            {topMatchups.map((m) => {
+              const total = m.wins + m.losses + m.draws;
+              const winRate = total ? ((m.wins / total) * 100).toFixed(1) : '0.0';
               return (
-                <Text key={name} style={styles.insightText}>
-                  {name}: {stats.wins}W - {stats.losses}L - {stats.draws}D ({winRate}%)
+                <Text key={m.name} style={styles.insightText}>
+                  {m.name}: {m.wins}W - {m.losses}L - {m.draws}D ({winRate}%)
                 </Text>
               );
             })}
@@ -216,7 +126,6 @@ export default function DeckDetailScreen() {
               </Pressable>
             </Link>
           </View>
-
 
           {opponentChartData.length > 0 && (
             <View style={styles.chartSection}>
@@ -369,5 +278,4 @@ const styles = StyleSheet.create({
     color: '#0e1a2b',
     fontWeight: '600',
   },
-  
 });
