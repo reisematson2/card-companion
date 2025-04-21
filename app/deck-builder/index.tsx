@@ -1,77 +1,72 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
-  FlatList,
   Pressable,
-  Image,
+  FlatList,
+  Animated,
   StyleSheet,
-  ActivityIndicator,
-  Alert,
-  ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Animated,
+  Keyboard,
+  Dimensions,
 } from 'react-native';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { searchScryfallCards } from '../../utils/scryfall';
-import { useTheme } from '../../context/ThemeContext';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import uuid from 'react-native-uuid';
+import { searchScryfallCards } from '../../utils/scryfall';
 import { getDecks, saveDeck } from '../../utils/storage';
+import { useTheme } from '../../context/ThemeContext';
+import { useSettings } from '../../context/SettingsContext';
 
 export default function DeckBuilderScreen() {
-  const { deckId } = useLocalSearchParams();
+  const { deckId } = useLocalSearchParams<{ deckId?: string }>();
+  const router = useRouter();
+  const { isDark } = useTheme();
+  const { displayStyle } = useSettings();
+
+  // Current deck in-progress state: { [cardName]: { card, quantity } }
+  const [deckCards, setDeckCards] = useState<Record<string, { card: any; quantity: number }>>({});
+  // Search
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [deckCards, setDeckCards] = useState<{ [name: string]: { card: any; quantity: number } }>({});
   const [searchExpanded, setSearchExpanded] = useState(false);
-  const { isDark } = useTheme();
+
+  // Animated value for overlay entrance
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
+  // Load existing deck if editing
   useEffect(() => {
-    const loadDeck = async () => {
-      if (!deckId) return;
-      const decks = await getDecks();
-      const deck = decks.find(d => d.id === deckId);
-      if (!deck) return;
-      setDeckCards(deck.cards || {});
-    };
-    loadDeck();
+    if (deckId) {
+      getDecks().then((decks) => {
+        const found = decks.find((d) => d.id === deckId);
+        if (found?.cards) setDeckCards(found.cards);
+      });
+    }
   }, [deckId]);
 
+  // Animate overlay on expand/collapse
   useEffect(() => {
-    if (searchExpanded) {
-      Animated.timing(overlayAnim, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(overlayAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
+    Animated.timing(overlayAnim, {
+      toValue: searchExpanded ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
   }, [searchExpanded]);
 
-  const handleSearch = async () => {
-    if (!query.trim()) return;
-    setSearchExpanded(true);
-    setLoading(true);
-    const cards = await searchScryfallCards(query.trim());
-    setResults(cards);
-    setLoading(false);
-  };
+  // Perform search whenever query changes
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
+    const delay = setTimeout(() => {
+      searchScryfallCards(query).then(setResults);
+    }, 300);
+    return () => clearTimeout(delay);
+  }, [query]);
 
-  const handleCollapseSearch = () => {
-    setSearchExpanded(false);
-    setQuery('');
-    setResults([]);
-  };
-
+  // Handlers
   const handleAddCard = (card: any) => {
     const key = card.name.toLowerCase();
     setDeckCards((prev) => {
@@ -84,237 +79,237 @@ export default function DeckBuilderScreen() {
         },
       };
     });
+    // Keep keyboard up but dismiss overlay if desired
+  };
+
+  const handleRemoveCard = (key: string) => {
+    setDeckCards((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   };
 
   const handleSaveDeck = async () => {
-    if (!deckId) return;
     const decks = await getDecks();
-    const deckIndex = decks.findIndex(d => d.id === deckId);
-    if (deckIndex === -1) return;
+    if (deckId) {
+      // overwrite existing
+      const idx = decks.findIndex((d) => d.id === deckId);
+      if (idx !== -1) {
+        decks[idx] = { ...decks[idx], cards: deckCards };
+        await saveDeck(decks[idx]);
+      }
+    } else {
+      // new deck
+      const newDeck = {
+        id: uuid.v4().toString(),
+        name: 'New Deck',
+        format: '',
+        createdAt: new Date().toISOString(),
+        matches: [],
+        cards: deckCards,
+      };
+      await saveDeck(newDeck);
+      router.replace(`/decks/${newDeck.id}`);
+      return;
+    }
+    alert('Deck saved!');
+  };
 
-    const baseDeck = decks[deckIndex];
-    const versionId = uuid.v4().toString();
-    const timestamp = new Date().toISOString();
+  // Renderers for two styles
+  const renderDefaultCard = ({ item }: { item: { card: any; quantity: number } }) => (
+    <View style={[styles.cardTile, isDark && styles.cardTileDark]}>
+      <Text style={[styles.cardName, isDark && styles.textDark]}>
+        {item.quantity}× {item.card.name}
+      </Text>
+      <Pressable onPress={() => handleRemoveCard(item.card.name.toLowerCase())}>
+        <Text style={styles.removeText}>✕</Text>
+      </Pressable>
+    </View>
+  );
 
-    const version = {
-      id: versionId,
-      timestamp,
-      cards: deckCards,
-    };
+  const renderListCard = ({ item }: { item: { card: any; quantity: number } }) => (
+    <View style={[styles.cardRow, isDark && styles.cardRowDark]}>
+      <Text style={[styles.cardName, isDark && styles.textDark]}>
+        {item.quantity}× {item.card.name}
+      </Text>
+      <Pressable onPress={() => handleRemoveCard(item.card.name.toLowerCase())}>
+        <Text style={styles.removeText}>✕</Text>
+      </Pressable>
+    </View>
+  );
 
-    const updatedDeck = {
-      ...baseDeck,
-      cards: deckCards, // ✅ also persist latest cards to the main deck
-      versions: [...(baseDeck.versions || []), version],
-    };
-
-    decks[deckIndex] = updatedDeck;
-    await saveDeck(updatedDeck);
-    Alert.alert('Deck Saved', 'Your changes have been saved as a new version.');
+  // Overlay styles
+  const overlayStyle = {
+    opacity: overlayAnim,
+    transform: [
+      {
+        scale: overlayAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.95, 1],
+        }),
+      },
+    ],
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <View style={[styles.container, isDark && styles.containerDark]}>
-        <Stack.Screen options={{ title: deckId ? 'Edit Deck' : 'Deck Builder' }} />
+    <KeyboardAvoidingView
+      style={[styles.container, isDark && styles.containerDark]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <Stack.Screen options={{ title: deckId ? 'Edit Deck' : 'New Deck' }} />
 
+      {/* Search Bar (always at top) */}
+      <View style={[styles.searchBarContainer, isDark && styles.searchBarDark]}>
         <TextInput
-          style={[styles.input, isDark && styles.inputDark]}
-          placeholder="Search for cards (e.g. Lightning Bolt)"
-          placeholderTextColor={isDark ? '#ccc' : '#888'}
+          style={[styles.searchInput, isDark && styles.inputDark]}
+          placeholder="Search cards..."
+          placeholderTextColor={isDark ? '#888' : '#aaa'}
           value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
+          onChangeText={(t) => {
+            setQuery(t);
+            setSearchExpanded(!!t.trim());
+          }}
         />
-
         {searchExpanded && (
-          <Animated.View
-            style={[styles.overlayContainer, {
-              opacity: overlayAnim,
-              transform: [{ scale: overlayAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }]
-            }]}
-          >
-            <Pressable onPress={handleCollapseSearch} style={styles.collapseArrow}>
-              <View style={[styles.collapseIcon, isDark && styles.collapseIconDark]}>
-                <Text style={[styles.collapseIconText, isDark && styles.collapseIconTextDark]}>⌃</Text>
-              </View>
-            </Pressable>
-
-            {loading ? (
-              <ActivityIndicator size="large" color="#fbbf24" style={{ marginTop: 10 }} />
-            ) : (
-              <FlatList
-                data={results}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <Pressable
-                    onPress={() => handleAddCard(item)}
-                    style={[styles.card, isDark && styles.cardDark]}
-                  >
-                    <Image source={{ uri: item.image_uris?.small }} style={styles.image} />
-                    <View style={styles.info}>
-                      <Text style={[styles.name, isDark && styles.nameDark]}>{item.name}</Text>
-                      <Text style={[styles.set, isDark && styles.setDark]}>{item.set_name}</Text>
-                    </View>
-                  </Pressable>
-                )}
-                contentContainerStyle={{ paddingBottom: 100 }}
-                style={styles.suggestionList}
-              />
-            )}
-          </Animated.View>
+          <Pressable style={styles.collapseArrow} onPress={() => { setSearchExpanded(false); setQuery(''); Keyboard.dismiss(); }}>
+            <Text style={styles.arrowText}>⌃</Text>
+          </Pressable>
         )}
+      </View>
 
-        <Pressable style={styles.saveButton} onPress={handleSaveDeck}>
+      {/* Suggestions Overlay */}
+      {searchExpanded && (
+        <Animated.View style={[styles.overlay, overlayStyle, isDark && styles.overlayDark]}>
+          <FlatList
+            data={results}
+            keyExtractor={(c) => c.id}
+            renderItem={({ item }) => (
+              <Pressable style={styles.suggestionItem} onPress={() => handleAddCard(item)}>
+                <Text style={[styles.suggestionText, isDark && styles.textDark]}>
+                  {item.name}
+                </Text>
+              </Pressable>
+            )}
+            style={styles.suggestionsList}
+          />
+        </Animated.View>
+      )}
+
+      {/* Deck Cards */}
+      <FlatList
+        data={Object.values(deckCards)}
+        keyExtractor={(entry) => entry.card.id}
+        renderItem={displayStyle === 'list' ? renderListCard : renderDefaultCard}
+        contentContainerStyle={styles.deckList}
+        ListEmptyComponent={<Text style={[styles.emptyText, isDark && styles.textDark]}>No cards added</Text>}
+      />
+
+      {/* Action Buttons */}
+      <View style={styles.buttonRow}>
+        <Pressable style={[styles.saveButton, isDark && styles.saveButtonDark]} onPress={handleSaveDeck}>
           <Text style={styles.saveText}>💾 Save Deck</Text>
         </Pressable>
-
-        <Pressable style={[styles.saveButton, { backgroundColor: '#3b82f6' }]} onPress={() => router.push(`/decks/${deckId}/versions`)}>
-          <Text style={styles.saveText}>📜 Version History</Text>
+        <Pressable style={[styles.clearButton, isDark && styles.clearButtonDark]} onPress={() => setDeckCards({})}>
+          <Text style={styles.clearText}>🧹 Clear</Text>
         </Pressable>
-
-
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 70, paddingBottom: 200 }}>
-          {Object.entries(deckCards).map(([name, entry]) => (
-            <View key={name} style={[styles.card, isDark && styles.cardDark]}>
-              <Image source={{ uri: entry.card.image_uris?.small }} style={styles.image} />
-              <View style={styles.info}>
-                <Text style={[styles.name, isDark && styles.nameDark]}>{entry.card.name}</Text>
-                <Text style={[styles.set, isDark && styles.setDark]}>{entry.card.set_name}</Text>
-                <Text style={[styles.set, isDark && styles.setDark]}>Quantity: {entry.quantity}</Text>
-              </View>
-            </View>
-          ))}
-        </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
+const { width } = Dimensions.get('window');
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    padding: 16,
-  },
-  containerDark: {
-    backgroundColor: '#0f172a',
-  },
-  input: {
-    backgroundColor: '#fff',
+  container: { flex: 1, backgroundColor: '#fff' },
+  containerDark: { backgroundColor: '#0f172a' },
+
+  searchBarContainer: {
+    width: '100%',
     padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#e5e7eb',
+  },
+  searchBarDark: { backgroundColor: '#1f2937' },
+  searchInput: {
+    backgroundColor: '#fff',
+    padding: 10,
+    borderRadius: 6,
     fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
   },
   inputDark: {
-    backgroundColor: '#1e293b',
-    color: '#f8fafc',
-    borderColor: '#334155',
-  },
-  overlayContainer: {
-    position: 'absolute',
-    top: 65,
-    left: 10,
-    right: 10,
-    backgroundColor: '#e0e7ff',
-    borderRadius: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#c7d2fe',
-    zIndex: 999,
-    padding: 10,
-    maxHeight: '60%',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 6,
-    elevation: 8,
-  },
-  suggestionList: {
-    flexGrow: 0,
+    backgroundColor: '#374151',
+    color: '#f9fafb',
   },
   collapseArrow: {
-    alignItems: 'center',
-    marginBottom: 10,
+    position: 'absolute',
+    right: 16,
+    top: 16,
   },
-  collapseIcon: {
-    backgroundColor: '#e5e7eb',
-    borderRadius: 20,
-    padding: 6,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
+  arrowText: { fontSize: 18, color: '#6b7280' },
+
+  overlay: {
+    position: 'absolute',
+    top: 60,
+    left: 16,
+    right: 16,
+    maxHeight: 250,
+    backgroundColor: '#fff',
+    borderRadius: 8,
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
     elevation: 5,
+    zIndex: 10,
   },
-  collapseIconDark: {
-    backgroundColor: '#334155',
-  },
-  collapseIconText: {
-    fontSize: 18,
-    color: '#1e293b',
-  },
-  collapseIconTextDark: {
-    color: '#f8fafc',
-  },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  overlayDark: { backgroundColor: '#1f2937' },
+  suggestionsList: { padding: 8 },
+  suggestionItem: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  suggestionText: { fontSize: 16 },
+
+  deckList: { padding: 16, paddingTop: 80 /* leave space for search bar */ },
+  cardTile: {
     backgroundColor: '#f9fafb',
-    padding: 10,
+    padding: 12,
     borderRadius: 8,
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  cardDark: {
-    backgroundColor: '#1f2937',
+  cardTileDark: { backgroundColor: '#374151' },
+  cardRow: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
-  image: {
-    width: 48,
-    height: 67,
-    borderRadius: 4,
-    marginRight: 12,
-  },
-  info: {
-    flex: 1,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1e293b',
-  },
-  nameDark: {
-    color: '#f8fafc',
-  },
-  set: {
-    fontSize: 13,
-    color: '#64748b',
-  },
-  setDark: {
-    color: '#94a3b8',
+  cardRowDark: { borderBottomColor: '#4b5563' },
+  cardName: { fontSize: 16 },
+  removeText: { color: '#ef4444', fontSize: 16 },
+
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
   },
   saveButton: {
     backgroundColor: '#10b981',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginVertical: 12,
-    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 6,
   },
-  saveText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
+  saveButtonDark: { backgroundColor: '#059669' },
+  saveText: { color: '#fff', fontWeight: 'bold' },
+  clearButton: {
+    backgroundColor: '#fbbf24',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 6,
   },
+  clearButtonDark: { backgroundColor: '#d97706' },
+  clearText: { color: '#1e293b', fontWeight: 'bold' },
+
+  emptyText: { textAlign: 'center', marginTop: 40, color: '#6b7280' },
 });
