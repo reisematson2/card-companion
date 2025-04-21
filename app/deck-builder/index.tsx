@@ -14,7 +14,7 @@ import {
   Platform,
   Animated,
 } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { searchScryfallCards } from '../../utils/scryfall';
 import { useTheme } from '../../context/ThemeContext';
 import uuid from 'react-native-uuid';
