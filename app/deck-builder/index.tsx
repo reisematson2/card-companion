@@ -170,6 +170,11 @@ export default function DeckBuilderScreen() {
           <Text style={styles.saveText}>💾 Save Deck</Text>
         </Pressable>
 
+        <Pressable style={[styles.saveButton, { backgroundColor: '#3b82f6' }]} onPress={() => router.push(`/decks/${deckId}/versions`)}>
+          <Text style={styles.saveText}>📜 Version History</Text>
+        </Pressable>
+
+
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 70, paddingBottom: 200 }}>
           {Object.entries(deckCards).map(([name, entry]) => (
             <View key={name} style={[styles.card, isDark && styles.cardDark]}>
