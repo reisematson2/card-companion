@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Switch, Pressable, Alert } from 'react-native';
 import { Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const SETTINGS_KEYS = {
   FILTER: 'defaultMatchFilter',
