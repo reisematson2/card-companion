@@ -13,6 +13,8 @@ export const ThemeProvider = ({ children }) => {
   const systemColorScheme = useColorScheme();
   const [isDark, setIsDark] = useState(systemColorScheme === 'dark');
   const [themeReady, setThemeReady] = useState(false);
+  const [deckDisplayStyle, setDeckDisplayStyle] = useState<'default' | 'list'>('default');
+
 
   useEffect(() => {
     const loadPreference = async () => {
