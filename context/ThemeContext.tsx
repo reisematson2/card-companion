@@ -1,45 +1,43 @@
-// context/ThemeContext.tsx
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Appearance, useColorScheme } from 'react-native';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ThemeContext = createContext({
-  isDark: false,
-  toggleTheme: () => {},
-  themeReady: false,
-});
+type ThemeContextType = {
+  isDark: boolean;
+  toggleTheme: () => void;
+};
 
-export const ThemeProvider = ({ children }) => {
-  const systemColorScheme = useColorScheme();
-  const [isDark, setIsDark] = useState(systemColorScheme === 'dark');
-  const [themeReady, setThemeReady] = useState(false);
-  const [deckDisplayStyle, setDeckDisplayStyle] = useState<'default' | 'list'>('default');
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  // Start with system theme, then override with saved preference
+  const systemPrefersDark = useColorScheme() === 'dark';
+  const [isDark, setIsDark] = useState(systemPrefersDark);
 
+  // Load saved preference on mount
   useEffect(() => {
-    const loadPreference = async () => {
-      const stored = await AsyncStorage.getItem('useDarkMode');
-      if (stored !== null) {
-        setIsDark(stored === 'true');
-      } else {
-        setIsDark(systemColorScheme === 'dark');
-      }
-      setThemeReady(true);
-    };
-    loadPreference();
-  }, [systemColorScheme]);
+    AsyncStorage.getItem('useDarkMode').then(value => {
+      if (value !== null) setIsDark(value === 'true');
+    });
+  }, []);
 
-  const toggleTheme = async () => {
-    const next = !isDark;
-    setIsDark(next);
-    await AsyncStorage.setItem('useDarkMode', next.toString());
+  const toggleTheme = () => {
+    setIsDark(prev => {
+      const next = !prev;
+      AsyncStorage.setItem('useDarkMode', next.toString());
+      return next;
+    });
   };
 
   return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme, themeReady }}>
+    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
-};
+}
 
-export const useTheme = () => useContext(ThemeContext);
+export function useTheme() {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
+  return ctx;
+}
