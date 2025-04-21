@@ -1,51 +1,72 @@
+// app/deck-builder/index.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
   Pressable,
+  StyleSheet,
+  SafeAreaView,
   FlatList,
   Animated,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Image,
+  Alert,
   Dimensions,
 } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import uuid from 'react-native-uuid';
-import { searchScryfallCards } from '../../utils/scryfall';
-import { getDecks, saveDeck } from '../../utils/storage';
 import { useTheme } from '../../context/ThemeContext';
 import { useSettings } from '../../context/SettingsContext';
+import { useLocalSearchParams, router, Stack } from 'expo-router';
+import { getDecks, saveDeck, Deck } from '../../utils/storage';
+import uuid from 'react-native-uuid';
+import { searchScryfallCards } from '../../utils/scryfall';
+
+type DeckCardEntry = {
+  card: any;
+  quantity: number;
+};
+
+// GRID CALC
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const NUM_COLUMNS = 3;
+const H_PADDING = 8;
+const TILE_MARGIN = 6;
+const TILE_WIDTH =
+  (SCREEN_WIDTH - H_PADDING * 2 - TILE_MARGIN * 2 * NUM_COLUMNS) /
+  NUM_COLUMNS;
 
 export default function DeckBuilderScreen() {
   const { deckId } = useLocalSearchParams<{ deckId?: string }>();
-  const router = useRouter();
   const { isDark } = useTheme();
   const { displayStyle } = useSettings();
 
-  // Current deck in-progress state: { [cardName]: { card, quantity } }
-  const [deckCards, setDeckCards] = useState<Record<string, { card: any; quantity: number }>>({});
-  // Search
+  const [deck, setDeck] = useState<Deck | null>(null);
+  // split state for mainboard and sideboard
+  const [mainCards, setMainCards] = useState<Record<string, DeckCardEntry>>({});
+  const [sideCards, setSideCards] = useState<Record<string, DeckCardEntry>>({});
+
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [searchExpanded, setSearchExpanded] = useState(false);
-
-  // Animated value for overlay entrance
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
-  // Load existing deck if editing
+  // load existing deck
   useEffect(() => {
-    if (deckId) {
-      getDecks().then((decks) => {
-        const found = decks.find((d) => d.id === deckId);
-        if (found?.cards) setDeckCards(found.cards);
-      });
-    }
+    if (!deckId) return;
+    getDecks().then((decks) => {
+      const found = decks.find((d) => d.id === deckId);
+      if (found) {
+        setDeck(found);
+        // preload main & side
+        setMainCards(found.cards?.main || {});
+        setSideCards(found.cards?.side || {});
+      }
+    });
   }, [deckId]);
 
-  // Animate overlay on expand/collapse
+  // animate overlay
   useEffect(() => {
     Animated.timing(overlayAnim, {
       toValue: searchExpanded ? 1 : 0,
@@ -54,22 +75,25 @@ export default function DeckBuilderScreen() {
     }).start();
   }, [searchExpanded]);
 
-  // Perform search whenever query changes
+  // debounced search
   useEffect(() => {
-    if (!query.trim()) {
-      setResults([]);
-      return;
-    }
-    const delay = setTimeout(() => {
-      searchScryfallCards(query).then(setResults);
+    if (!searchExpanded) return;
+    const kt = setTimeout(async () => {
+      if (query.trim().length < 2) {
+        setResults([]);
+      } else {
+        const cards = await searchScryfallCards(query);
+        setResults(cards.slice(0, 10));
+      }
     }, 300);
-    return () => clearTimeout(delay);
-  }, [query]);
+    return () => clearTimeout(kt);
+  }, [query, searchExpanded]);
 
-  // Handlers
+  // add to mainboard by default
   const handleAddCard = (card: any) => {
-    const key = card.name.toLowerCase();
-    setDeckCards((prev) => {
+    Keyboard.dismiss();
+    setMainCards(prev => {
+      const key = card.name.toLowerCase();
       const existing = prev[key];
       return {
         ...prev,
@@ -79,237 +103,348 @@ export default function DeckBuilderScreen() {
         },
       };
     });
-    // Keep keyboard up but dismiss overlay if desired
+    setQuery(''); setResults([]); setSearchExpanded(false);
   };
 
-  const handleRemoveCard = (key: string) => {
-    setDeckCards((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
+  // remove or decrement
+  const handleRemoveCard = (key: string, board: 'main' | 'side') => {
+    const setter = board === 'main' ? setMainCards : setSideCards;
+    const src = board === 'main' ? mainCards : sideCards;
+    const entry = src[key];
+    if (!entry) return;
+    if (entry.quantity > 1) {
+      setter(prev => ({ ...prev, [key]: { card: entry.card, quantity: entry.quantity - 1 } }));
+    } else {
+      setter(prev => {
+        const { [key]: _, ...rest } = prev;
+        return rest;
+      });
+    }
+  };
+
+  // move between boards
+  const handleMoveCard = (key: string, from: 'main' | 'side') => {
+    const src = from === 'main' ? mainCards : sideCards;
+    const dstSetter = from === 'main' ? setSideCards : setMainCards;
+    const srcSetter = from === 'main' ? setMainCards : setSideCards;
+    const entry = src[key];
+    if (!entry) return;
+    // remove from source entirely
+    srcSetter(prev => {
+      const { [key]: _, ...rest } = prev;
+      return rest;
+    });
+    // add to destination
+    dstSetter(prev => {
+      const existing = prev[key];
+      return {
+        ...prev,
+        [key]: {
+          card: entry.card,
+          quantity: existing ? existing.quantity + entry.quantity : entry.quantity,
+        },
+      };
     });
   };
 
+  // save deck and version
   const handleSaveDeck = async () => {
-    const decks = await getDecks();
-    if (deckId) {
-      // overwrite existing
-      const idx = decks.findIndex((d) => d.id === deckId);
-      if (idx !== -1) {
-        decks[idx] = { ...decks[idx], cards: deckCards };
-        await saveDeck(decks[idx]);
-      }
-    } else {
-      // new deck
-      const newDeck = {
-        id: uuid.v4().toString(),
-        name: 'New Deck',
-        format: '',
-        createdAt: new Date().toISOString(),
-        matches: [],
-        cards: deckCards,
-      };
-      await saveDeck(newDeck);
-      router.replace(`/decks/${newDeck.id}`);
-      return;
-    }
-    alert('Deck saved!');
+    if (!deck) return;
+    const updated: Deck = {
+      ...deck,
+      cards: { main: mainCards, side: sideCards },
+      versions: [
+        ...(deck.versions || []),
+        {
+          id: uuid.v4().toString(),
+          timestamp: new Date().toISOString(),
+          cards: { main: mainCards, side: sideCards },
+        },
+      ],
+    };
+    await saveDeck(updated);
+    Alert.alert('Saved', 'Deck saved with new version');
+    router.back();
   };
 
-  // Renderers for two styles
-  const renderDefaultCard = ({ item }: { item: { card: any; quantity: number } }) => (
-    <View style={[styles.cardTile, isDark && styles.cardTileDark]}>
-      <Text style={[styles.cardName, isDark && styles.textDark]}>
-        {item.quantity}× {item.card.name}
-      </Text>
-      <Pressable onPress={() => handleRemoveCard(item.card.name.toLowerCase())}>
-        <Text style={styles.removeText}>✕</Text>
-      </Pressable>
-    </View>
-  );
-
-  const renderListCard = ({ item }: { item: { card: any; quantity: number } }) => (
-    <View style={[styles.cardRow, isDark && styles.cardRowDark]}>
-      <Text style={[styles.cardName, isDark && styles.textDark]}>
-        {item.quantity}× {item.card.name}
-      </Text>
-      <Pressable onPress={() => handleRemoveCard(item.card.name.toLowerCase())}>
-        <Text style={styles.removeText}>✕</Text>
-      </Pressable>
-    </View>
-  );
-
-  // Overlay styles
-  const overlayStyle = {
-    opacity: overlayAnim,
-    transform: [
-      {
-        scale: overlayAnim.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0.95, 1],
-        }),
-      },
-    ],
-  };
+  // render card entries based on displayStyle
+  const renderEntry = (entry: DeckCardEntry, board: 'main' | 'side') =>
+    displayStyle === 'list' ? (
+      <ListCardItem
+        key={entry.card.id + board}
+        entry={entry}
+        isDark={isDark}
+        board={board}
+        onRemove={() => handleRemoveCard(entry.card.name.toLowerCase(), board)}
+        onMove={() => handleMoveCard(entry.card.name.toLowerCase(), board)}
+      />
+    ) : (
+      <DefaultCardItem
+        key={entry.card.id + board}
+        entry={entry}
+        isDark={isDark}
+        board={board}
+        onRemove={() => handleRemoveCard(entry.card.name.toLowerCase(), board)}
+        onMove={() => handleMoveCard(entry.card.name.toLowerCase(), board)}
+      />
+    );
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, isDark && styles.containerDark]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <Stack.Screen options={{ title: deckId ? 'Edit Deck' : 'New Deck' }} />
+    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      <Stack.Screen options={{ title: deck?.name || 'Deck Builder' }} />
 
-      {/* Search Bar (always at top) */}
-      <View style={[styles.searchBarContainer, isDark && styles.searchBarDark]}>
-        <TextInput
-          style={[styles.searchInput, isDark && styles.inputDark]}
-          placeholder="Search cards..."
-          placeholderTextColor={isDark ? '#888' : '#aaa'}
-          value={query}
-          onChangeText={(t) => {
-            setQuery(t);
-            setSearchExpanded(!!t.trim());
-          }}
-        />
-        {searchExpanded && (
-          <Pressable style={styles.collapseArrow} onPress={() => { setSearchExpanded(false); setQuery(''); Keyboard.dismiss(); }}>
-            <Text style={styles.arrowText}>⌃</Text>
-          </Pressable>
-        )}
-      </View>
-
-      {/* Suggestions Overlay */}
-      {searchExpanded && (
-        <Animated.View style={[styles.overlay, overlayStyle, isDark && styles.overlayDark]}>
-          <FlatList
-            data={results}
-            keyExtractor={(c) => c.id}
-            renderItem={({ item }) => (
-              <Pressable style={styles.suggestionItem} onPress={() => handleAddCard(item)}>
-                <Text style={[styles.suggestionText, isDark && styles.textDark]}>
-                  {item.name}
-                </Text>
-              </Pressable>
-            )}
-            style={styles.suggestionsList}
+      {/* Search */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={[styles.searchBar, isDark && styles.searchBarDark]}>
+          <TextInput
+            style={[styles.searchInput, isDark && styles.searchInputDark]}
+            placeholder="Search cards..."
+            placeholderTextColor={isDark ? '#888' : '#aaa'}
+            value={query}
+            onChangeText={t => { setQuery(t); setSearchExpanded(true); }}
           />
-        </Animated.View>
-      )}
+        </View>
+        {searchExpanded && (
+          <Animated.View
+            pointerEvents="auto"
+            style={[
+              styles.overlay,
+              {
+                opacity: overlayAnim,
+                transform: [{ scale: overlayAnim.interpolate({ inputRange:[0,1], outputRange:[0.95,1] }) }],
+              },
+            ]}
+          >
+            <Pressable style={styles.collapseArrow} onPress={() => setSearchExpanded(false)}>
+              <Text style={styles.collapseArrowText}>⌄</Text>
+            </Pressable>
+            <FlatList
+              data={results}
+              keyExtractor={i => i.id}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={[styles.resultItem, isDark && styles.resultItemDark]}
+                  onPress={() => handleAddCard(item)}
+                >
+                  <Image
+                    source={{ uri: item.image_uris?.small || item.card_faces?.[0]?.image_uris?.small || '' }}
+                    style={styles.resultThumb}
+                  />
+                  <Text style={[styles.resultText, isDark && styles.resultTextDark]}>
+                    {item.name}
+                  </Text>
+                </Pressable>
+              )}
+              style={styles.resultsList}
+            />
+          </Animated.View>
+        )}
+      </KeyboardAvoidingView>
 
-      {/* Deck Cards */}
+      {/* Deck Contents */}
+      <Text style={[styles.sectionHeader, isDark && styles.sectionHeaderDark]}>Mainboard</Text>
       <FlatList
-        data={Object.values(deckCards)}
-        keyExtractor={(entry) => entry.card.id}
-        renderItem={displayStyle === 'list' ? renderListCard : renderDefaultCard}
-        contentContainerStyle={styles.deckList}
-        ListEmptyComponent={<Text style={[styles.emptyText, isDark && styles.textDark]}>No cards added</Text>}
+        data={Object.values(mainCards)}
+        keyExtractor={e => e.card.id + 'main'}
+        numColumns={NUM_COLUMNS}
+        renderItem={({ item }) => renderEntry(item, 'main')}
+        contentContainerStyle={styles.deckGrid}
       />
 
-      {/* Action Buttons */}
+      <Text style={[styles.sectionHeader, isDark && styles.sectionHeaderDark]}>Sideboard</Text>
+      <FlatList
+        data={Object.values(sideCards)}
+        keyExtractor={e => e.card.id + 'side'}
+        numColumns={NUM_COLUMNS}
+        renderItem={({ item }) => renderEntry(item, 'side')}
+        contentContainerStyle={styles.deckGrid}
+      />
+
+      {/* Actions */}
       <View style={styles.buttonRow}>
-        <Pressable style={[styles.saveButton, isDark && styles.saveButtonDark]} onPress={handleSaveDeck}>
-          <Text style={styles.saveText}>💾 Save Deck</Text>
+        <Pressable style={styles.clearButton} onPress={() => { setMainCards({}); setSideCards({}); }}>
+          <Text style={styles.buttonText}>🧹 Clear All</Text>
         </Pressable>
-        <Pressable style={[styles.clearButton, isDark && styles.clearButtonDark]} onPress={() => setDeckCards({})}>
-          <Text style={styles.clearText}>🧹 Clear</Text>
+        <Pressable style={styles.saveButton} onPress={handleSaveDeck}>
+          <Text style={styles.buttonText}>💾 Save</Text>
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
-const { width } = Dimensions.get('window');
+// Default tile with remove/move buttons
+function DefaultCardItem({
+  entry,
+  isDark,
+  board,
+  onRemove,
+  onMove,
+}: {
+  entry: DeckCardEntry;
+  isDark: boolean;
+  board: 'main' | 'side';
+  onRemove: () => void;
+  onMove: () => void;
+}) {
+  const thumb =
+    entry.card.image_uris?.small ||
+    entry.card.card_faces?.[0]?.image_uris?.small ||
+    '';
+
+  return (
+    <View style={[styles.gridTile, isDark && styles.gridTileDark]}>
+      <Image source={{ uri: thumb }} style={styles.gridImage} />
+      <View style={[styles.gridOverlay, isDark && styles.gridOverlayDark]}>
+        <Text style={[styles.gridName, isDark && styles.gridNameDark]} numberOfLines={1}>
+          {entry.card.name}
+        </Text>
+        <Text style={[styles.gridQtyText, { marginRight: 8 }]}>{entry.quantity}</Text>
+      </View>
+      {/* Move & Remove Controls */}
+      <View style={styles.tileControls}>
+        <Pressable onPress={onMove} style={styles.controlBtn}>
+          <Text style={styles.controlText}>{board === 'main' ? '⇄' : '⇄'}</Text>
+        </Pressable>
+        <Pressable onPress={onRemove} style={styles.controlBtn}>
+          <Text style={styles.controlText}>×</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// List view with move/remove
+function ListCardItem({
+  entry,
+  isDark,
+  board,
+  onRemove,
+  onMove,
+}: {
+  entry: DeckCardEntry;
+  isDark: boolean;
+  board: 'main' | 'side';
+  onRemove: () => void;
+  onMove: () => void;
+}) {
+  const thumb =
+    entry.card.image_uris?.small ||
+    entry.card.card_faces?.[0]?.image_uris?.small ||
+    '';
+
+  return (
+    <View style={[styles.cardRow, isDark && styles.cardRowDark]}>
+      <Image source={{ uri: thumb }} style={styles.cardRowImage} />
+      <Text style={[styles.cardRowName, isDark && styles.cardRowNameDark]} numberOfLines={1}>
+        {entry.card.name}
+      </Text>
+      <Text style={[styles.cardRowQty, isDark && styles.cardRowQtyDark]}>x{entry.quantity}</Text>
+      <Pressable onPress={onMove} style={styles.listControlBtn}>
+        <Text style={styles.controlText}>⇄</Text>
+      </Pressable>
+      <Pressable onPress={onRemove} style={styles.listControlBtn}>
+        <Text style={styles.controlText}>×</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#f3f4f6' },
   containerDark: { backgroundColor: '#0f172a' },
 
-  searchBarContainer: {
-    width: '100%',
-    padding: 12,
-    backgroundColor: '#e5e7eb',
+  // section labels
+  sectionHeader: { marginTop: 72, marginLeft: 8, fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
+  sectionHeaderDark: { color: '#f3f4f6' },
+
+  // search
+  searchBar: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    backgroundColor: '#fff', padding: 8, zIndex: 3,
   },
   searchBarDark: { backgroundColor: '#1f2937' },
-  searchInput: {
-    backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 6,
-    fontSize: 16,
-  },
-  inputDark: {
-    backgroundColor: '#374151',
-    color: '#f9fafb',
-  },
-  collapseArrow: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
-  },
-  arrowText: { fontSize: 18, color: '#6b7280' },
+  searchInput: { backgroundColor: '#e5e7eb', borderRadius: 6, padding: 8 },
+  searchInputDark: { backgroundColor: '#374151', color: '#f3f4f6' },
 
+  // overlay
   overlay: {
-    position: 'absolute',
-    top: 60,
-    left: 16,
-    right: 16,
-    maxHeight: 250,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 5,
-    zIndex: 10,
+    position: 'absolute', top: 48, left: 8, right: 8, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 8, padding: 12, zIndex: 2,
   },
-  overlayDark: { backgroundColor: '#1f2937' },
-  suggestionsList: { padding: 8 },
-  suggestionItem: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  suggestionText: { fontSize: 16 },
+  collapseArrow: { alignSelf: 'center', marginBottom: 8 },
+  collapseArrowText: { fontSize: 18, color: '#fff' },
+  resultsList: { backgroundColor: '#fff', borderRadius: 6, maxHeight: 300 },
+  resultItem: {
+    flexDirection: 'row', alignItems: 'center',
+    padding: 8, borderBottomWidth: 1, borderColor: '#e5e7eb',
+  },
+  resultItemDark: { backgroundColor: '#374151', borderColor: '#4b5563' },
+  resultThumb: { width: 32, height: 45, marginRight: 8 },
+  resultText: { fontSize: 14, color: '#1f2937' },
+  resultTextDark: { color: '#f3f4f6' },
 
-  deckList: { padding: 16, paddingTop: 80 /* leave space for search bar */ },
-  cardTile: {
-    backgroundColor: '#f9fafb',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  // grid
+  deckGrid: { paddingTop: 96, paddingHorizontal: H_PADDING, paddingBottom: 80 },
+  gridTile: {
+    width: TILE_WIDTH, aspectRatio: 0.7, margin: TILE_MARGIN,
+    borderRadius: 8, overflow: 'hidden', backgroundColor: '#f9fafb', elevation: 2,
   },
-  cardTileDark: { backgroundColor: '#374151' },
+  gridTileDark: { backgroundColor: '#1f2937' },
+  gridImage: { width: '100%', height: '100%', position: 'absolute' },
+  gridOverlay: {
+    position: 'absolute', bottom: 0, width: '100%',
+    backgroundColor: 'rgba(0,0,0,0.5)', padding: 4,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  gridOverlayDark: { backgroundColor: 'rgba(31,41,55,0.7)' },
+  gridName: { flex: 1, color: '#fff', fontSize: 12, marginRight: 4 },
+  gridNameDark: { color: '#f3f4f6' },
+  gridQtyBadge: {
+    backgroundColor: '#3b82f6', borderRadius: 6, paddingHorizontal: 4,
+  },
+  gridQtyText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+
+  // tile controls
+  tileControls: {
+    position: 'absolute', top: 4, right: 4, flexDirection: 'row',
+  },
+  controlBtn: {
+    backgroundColor: 'rgba(0,0,0,0.6)', marginLeft: 4,
+    borderRadius: 4, padding: 2,
+  },
+  controlText: { color: '#fff', fontSize: 12 },
+
+  // list
   cardRow: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff', padding: 8,
+    marginVertical: 4, marginHorizontal: 8,
+    borderRadius: 6, elevation: 1,
   },
-  cardRowDark: { borderBottomColor: '#4b5563' },
-  cardName: { fontSize: 16 },
-  removeText: { color: '#ef4444', fontSize: 16 },
+  cardRowDark: { backgroundColor: '#1f2937' },
+  cardRowImage: { width: 32, height: 45, borderRadius: 4, marginRight: 8 },
+  cardRowName: { flex: 1, fontSize: 14, color: '#1f2937' },
+  cardRowNameDark: { color: '#f3f4f6' },
+  cardRowQty: { fontSize: 14, color: '#1f2937', marginLeft: 8 },
+  cardRowQtyDark: { color: '#f3f4f6' },
+  listControlBtn: {
+    marginLeft: 8, backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 4, padding: 4,
+  },
 
+  // actions
   buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    position: 'absolute', bottom: 16, left: 16, right: 16,
+    flexDirection: 'row', justifyContent: 'space-between',
+  },
+  clearButton: {
+    flex: 1, marginRight: 8, backgroundColor: '#ef4444',
+    padding: 12, borderRadius: 6, alignItems: 'center',
   },
   saveButton: {
-    backgroundColor: '#10b981',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 6,
+    flex: 1, marginLeft: 8, backgroundColor: '#10b981',
+    padding: 12, borderRadius: 6, alignItems: 'center',
   },
-  saveButtonDark: { backgroundColor: '#059669' },
-  saveText: { color: '#fff', fontWeight: 'bold' },
-  clearButton: {
-    backgroundColor: '#fbbf24',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 6,
-  },
-  clearButtonDark: { backgroundColor: '#d97706' },
-  clearText: { color: '#1e293b', fontWeight: 'bold' },
-
-  emptyText: { textAlign: 'center', marginTop: 40, color: '#6b7280' },
+  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 });

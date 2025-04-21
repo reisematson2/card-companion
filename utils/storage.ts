@@ -12,45 +12,52 @@ export type Match = {
   notes?: string;
 };
 
-export type DeckVersion = {
-  id: string;
-  timestamp: string;
-  cards: { [name: string]: { card: any; quantity: number } };
-};
+const DECKS_KEY = '@card_companion_decks';
 
+export type DeckCardEntry = { card: any; quantity: number; };
+export type DeckVersion = { id: string; timestamp: string; cards: { main: Record<string,DeckCardEntry>; side: Record<string,DeckCardEntry> } };
 
-export type Deck = {
+export interface Deck {
   id: string;
   name: string;
   format: string;
   createdAt: string;
   matches: Match[];
-  versions?: DeckVersion[]; // ✅ Add this line
-};
-
-
-const DECKS_KEY = '@card_companion_decks';
-
-export async function getDecks(): Promise<Deck[]> {
-  const data = await AsyncStorage.getItem(DECKS_KEY);
-  return data ? JSON.parse(data) : [];
+  // new shape: nested main/side
+  cards: {
+    main: Record<string, DeckCardEntry>;
+    side: Record<string, DeckCardEntry>;
+  };
+  versions?: DeckVersion[];
 }
 
-export async function saveDeck(updatedDeck: Deck): Promise<void> {
-  console.log('>>> saveDeck() called'); // ← this should print no matter what
+// whenever you read decks, migrate old flat `cards` into `main`, and default missing fields:
+export async function getDecks(): Promise<Deck[]> {
+  const raw = await AsyncStorage.getItem('@CardCompanion:decks');
+  const arr = raw ? JSON.parse(raw) : [];
+  return arr.map((d: any) => {
+    // migrate old decks that stored cards flat at d.cards
+    const legacy = d.cards && !('main' in d.cards);
+    return {
+      ...d,
+      cards: legacy
+        ? { main: d.cards, side: {} }
+        : {
+            main: d.cards?.main ?? {},
+            side: d.cards?.side ?? {},
+          },
+      versions: d.versions ?? [],
+    };
+  });
+}
 
+// your saveDeck stays the same — now it writes out the nested shape.
+export async function saveDeck(deck: Deck) {
   const decks = await getDecks();
-  const index = decks.findIndex((d) => d.id === updatedDeck.id);
-
-  if (index >= 0) {
-    decks[index] = updatedDeck;
-  } else {
-    decks.unshift(updatedDeck); // fallback
-  }
-
-  console.log('Saving this to AsyncStorage:', decks);
-
-  await AsyncStorage.setItem(DECKS_KEY, JSON.stringify(decks));
+  const i = decks.findIndex((d) => d.id === deck.id);
+  if (i >= 0) decks[i] = deck;
+  else decks.push(deck);
+  await AsyncStorage.setItem('@CardCompanion:decks', JSON.stringify(decks));
 }
 
 

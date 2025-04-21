@@ -22,14 +22,19 @@ export default function DeckDetailScreen() {
     }
   }, [deck]);
 
-  useFocusEffect(
-    useCallback(() => {
-      getDecks().then((decks) => {
-        const found = decks.find((d) => d.id === deckId);
-        setDeck(found || null);
-      });
-    }, [deckId])
-  );
+  useEffect(() => {
+    if (!deckId) return;
+    getDecks().then((decks) => {
+      const found = decks.find((d) => d.id === deckId);
+      if (found) {
+        setDeck(found);
+        // since getDecks() now migrates old decks, we can safely do:
+        setMainCards(found.cards.main);
+        setSideCards(found.cards.side);
+      }
+    });
+  }, [deckId]);
+  
 
   const handleDeleteMatch = async (matchId: string) => {
     if (!deck) return;

@@ -18,6 +18,8 @@ export default function NewDeckScreen() {
       format,
       createdAt: new Date().toISOString(),
       matches: [],
+      cards: { main: {}, side: {} },   // <— initialize both
+      versions: [],
     };
     const existingDecks = await getDecks();
     await saveDeck(newDeck);
