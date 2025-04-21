@@ -11,15 +11,14 @@ import {
   Alert,
   ScrollView,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Animated,
 } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { searchScryfallCards } from '../../utils/scryfall';
 import { useTheme } from '../../context/ThemeContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Animated } from 'react-native';
 import uuid from 'react-native-uuid';
-import { saveDeck, getDecks } from '../../utils/storage';
+import { getDecks, saveDeck } from '../../utils/storage';
 
 export default function DeckBuilderScreen() {
   const { deckId } = useLocalSearchParams();
@@ -29,6 +28,34 @@ export default function DeckBuilderScreen() {
   const [deckCards, setDeckCards] = useState<{ [name: string]: { card: any; quantity: number } }>({});
   const [searchExpanded, setSearchExpanded] = useState(false);
   const { isDark } = useTheme();
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loadDeck = async () => {
+      if (!deckId) return;
+      const decks = await getDecks();
+      const deck = decks.find(d => d.id === deckId);
+      if (!deck) return;
+      setDeckCards(deck.cards || {});
+    };
+    loadDeck();
+  }, [deckId]);
+
+  useEffect(() => {
+    if (searchExpanded) {
+      Animated.timing(overlayAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(overlayAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [searchExpanded]);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -59,58 +86,38 @@ export default function DeckBuilderScreen() {
     });
   };
 
-  // Save current deck state as a version
-const handleSaveDeck = async () => {
-  if (!deckId) return;
-  const decks = await getDecks();
-  const deckIndex = decks.findIndex(d => d.id === deckId);
-  if (deckIndex === -1) return;
+  const handleSaveDeck = async () => {
+    if (!deckId) return;
+    const decks = await getDecks();
+    const deckIndex = decks.findIndex(d => d.id === deckId);
+    if (deckIndex === -1) return;
 
-  const baseDeck = decks[deckIndex];
-  const versionId = uuid.v4().toString();
-  const timestamp = new Date().toISOString();
+    const baseDeck = decks[deckIndex];
+    const versionId = uuid.v4().toString();
+    const timestamp = new Date().toISOString();
 
-  const version = {
-    id: versionId,
-    timestamp,
-    cards: deckCards,
+    const version = {
+      id: versionId,
+      timestamp,
+      cards: deckCards,
+    };
+
+    const updatedDeck = {
+      ...baseDeck,
+      cards: deckCards, // ✅ also persist latest cards to the main deck
+      versions: [...(baseDeck.versions || []), version],
+    };
+
+    decks[deckIndex] = updatedDeck;
+    await saveDeck(updatedDeck);
+    Alert.alert('Deck Saved', 'Your changes have been saved as a new version.');
   };
-
-  const updatedDeck = {
-    ...baseDeck,
-    versions: [...(baseDeck.versions || []), version],
-  };
-
-  decks[deckIndex] = updatedDeck;
-  await saveDeck(updatedDeck);
-  Alert.alert('Deck Saved', 'Your changes have been saved as a new version.');
-};
-
-
-  const overlayAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (searchExpanded) {
-      Animated.timing(overlayAnim, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(overlayAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [searchExpanded]);
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <View style={[styles.container, isDark && styles.containerDark]}>
         <Stack.Screen options={{ title: deckId ? 'Edit Deck' : 'Deck Builder' }} />
 
-        {/* Search Bar */}
         <TextInput
           style={[styles.input, isDark && styles.inputDark]}
           placeholder="Search for cards (e.g. Lightning Bolt)"
@@ -121,7 +128,6 @@ const handleSaveDeck = async () => {
           returnKeyType="search"
         />
 
-        {/* Search Suggestions Overlay */}
         {searchExpanded && (
           <Animated.View
             style={[styles.overlayContainer, {
@@ -160,7 +166,10 @@ const handleSaveDeck = async () => {
           </Animated.View>
         )}
 
-        {/* Deck Cards ScrollView */}
+        <Pressable style={styles.saveButton} onPress={handleSaveDeck}>
+          <Text style={styles.saveText}>💾 Save Deck</Text>
+        </Pressable>
+
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 70, paddingBottom: 200 }}>
           {Object.entries(deckCards).map(([name, entry]) => (
             <View key={name} style={[styles.card, isDark && styles.cardDark]}>
@@ -173,9 +182,6 @@ const handleSaveDeck = async () => {
             </View>
           ))}
         </ScrollView>
-        <Pressable style={styles.saveButton} onPress={handleSaveDeck}>
-  <Text style={styles.saveText}>💾 Save Deck</Text>
-</Pressable>
       </View>
     </KeyboardAvoidingView>
   );
