@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, Image, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, FlatList, Pressable, Image, StyleSheet, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { searchScryfallCards } from '../../utils/scryfall';
 import { useTheme } from '../../context/ThemeContext';
@@ -29,6 +29,7 @@ export default function DeckBuilderScreen() {
                 name: card.name,
                 image_uris: { small: card.image },
                 set_name: card.set,
+                type_line: card.type_line || '',
               },
               quantity: card.quantity,
             };
@@ -83,6 +84,30 @@ export default function DeckBuilderScreen() {
     });
   };
 
+  const groupByType = () => {
+    const groups: { [type: string]: { card: any; quantity: number }[] } = {};
+    for (const key in deckCards) {
+      const entry = deckCards[key];
+      const type = getPrimaryType(entry.card.type_line);
+      if (!groups[type]) groups[type] = [];
+      groups[type].push(entry);
+    }
+    return groups;
+  };
+
+  const getPrimaryType = (typeLine: string): string => {
+    if (typeLine.includes('Creature')) return 'Creatures';
+    if (typeLine.includes('Instant')) return 'Instants';
+    if (typeLine.includes('Sorcery')) return 'Sorceries';
+    if (typeLine.includes('Artifact')) return 'Artifacts';
+    if (typeLine.includes('Enchantment')) return 'Enchantments';
+    if (typeLine.includes('Planeswalker')) return 'Planeswalkers';
+    if (typeLine.includes('Land')) return 'Lands';
+    return 'Other';
+  };
+
+  const groupedCards = groupByType();
+
   const handleSaveDeck = async () => {
     const deckArray = Object.values(deckCards).map((entry) => ({
       name: entry.card.name,
@@ -90,6 +115,7 @@ export default function DeckBuilderScreen() {
       id: entry.card.id,
       image: entry.card.image_uris?.small,
       set: entry.card.set_name,
+      type_line: entry.card.type_line,
     }));
     try {
       await AsyncStorage.setItem('deck_in_progress', JSON.stringify(deckArray));
@@ -110,6 +136,45 @@ export default function DeckBuilderScreen() {
     <View style={[styles.container, isDark && styles.containerDark]}>
       <Stack.Screen options={{ title: deckId ? 'Edit Deck' : 'Deck Builder' }} />
 
+      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+        {deckId ? `📝 Editing ${deckName}` : '📥 Deck In Progress'}
+      </Text>
+
+      <ScrollView style={{ flex: 1 }}>
+        {Object.entries(groupedCards).map(([type, cards]) => (
+          <View key={type} style={{ marginBottom: 12 }}>
+            <Text style={[styles.sectionTitle, isDark && styles.textLight]}>{type} ({cards.length})</Text>
+            {cards.map(({ card, quantity }) => (
+              <View key={card.id} style={[styles.card, isDark && styles.cardDark]}>
+                <Image source={{ uri: card.image_uris?.small }} style={styles.image} />
+                <View style={styles.info}>
+                  <Text style={[styles.name, isDark && styles.nameDark]}>{card.name}</Text>
+                  <Text style={[styles.set, isDark && styles.setDark]}>{card.set_name}</Text>
+                </View>
+                <View style={styles.controls}>
+                  <Pressable onPress={() => handleAdjustQuantity(card.name, -1)}>
+                    <Text style={styles.controlBtn}>−</Text>
+                  </Pressable>
+                  <Text style={[styles.qtyText, isDark && styles.textLight]}>{quantity}</Text>
+                  <Pressable onPress={() => handleAdjustQuantity(card.name, 1)}>
+                    <Text style={styles.controlBtn}>+</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        ))}
+      </ScrollView>
+
+      <View style={styles.actionRow}>
+        <Pressable style={styles.saveButton} onPress={handleSaveDeck}>
+          <Text style={styles.saveText}>💾 Save</Text>
+        </Pressable>
+        <Pressable style={styles.clearButton} onPress={handleClearDeck}>
+          <Text style={styles.clearText}>🗑️ Clear</Text>
+        </Pressable>
+      </View>
+
       <TextInput
         style={[styles.input, isDark && styles.inputDark]}
         placeholder="Search for cards (e.g. Lightning Bolt)"
@@ -120,50 +185,8 @@ export default function DeckBuilderScreen() {
         returnKeyType="search"
       />
 
-      {Object.keys(deckCards).length > 0 && (
-        <View style={styles.deckSummary}>
-          <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
-            {deckId ? `📝 Editing ${deckName}` : '📥 Deck In Progress'}
-          </Text>
-          <FlatList
-            data={Object.values(deckCards)}
-            keyExtractor={(item) => item.card.id}
-            renderItem={({ item }) => (
-              <View style={[styles.card, isDark && styles.cardDark]}>
-                <Image source={{ uri: item.card.image_uris?.small }} style={styles.image} />
-                <View style={styles.info}>
-                  <Text style={[styles.name, isDark && styles.nameDark]}>{item.card.name}</Text>
-                  <Text style={[styles.set, isDark && styles.setDark]}>{item.card.set_name}</Text>
-                </View>
-                <View style={styles.controls}>
-                  <Pressable onPress={() => handleAdjustQuantity(item.card.name, -1)}>
-                    <Text style={styles.controlBtn}>−</Text>
-                  </Pressable>
-                  <Text style={[styles.qtyText, isDark && styles.textLight]}>{item.quantity}</Text>
-                  <Pressable onPress={() => handleAdjustQuantity(item.card.name, 1)}>
-                    <Text style={styles.controlBtn}>+</Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 10 }}
-          />
-
-          <View style={styles.actionRow}>
-            <Pressable style={styles.saveButton} onPress={handleSaveDeck}>
-              <Text style={styles.saveText}>💾 Save</Text>
-            </Pressable>
-            <Pressable style={styles.clearButton} onPress={handleClearDeck}>
-              <Text style={styles.clearText}>🗑️ Clear</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
-
       {loading ? (
-        <ActivityIndicator size="large" color="#fbbf24" style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" color="#fbbf24" style={{ marginTop: 10 }} />
       ) : (
         <FlatList
           data={results}
@@ -183,9 +206,6 @@ export default function DeckBuilderScreen() {
     </View>
   );
 }
-
-// (Styles remain unchanged from previous version)
-
 
 const styles = StyleSheet.create({
   container: {
