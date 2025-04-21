@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { searchScryfallCards } from '../../utils/scryfall';
 import { useTheme } from '../../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDecks } from '../../utils/storage';
+import { Animated } from 'react-native';
 
 export default function DeckBuilderScreen() {
   const { deckId } = useLocalSearchParams();
@@ -57,6 +58,24 @@ export default function DeckBuilderScreen() {
     });
   };
 
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (searchExpanded) {
+      Animated.timing(overlayAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(overlayAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [searchExpanded]);
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <View style={[styles.container, isDark && styles.containerDark]}>
@@ -75,7 +94,12 @@ export default function DeckBuilderScreen() {
 
         {/* Search Suggestions Overlay */}
         {searchExpanded && (
-          <View style={styles.overlayContainer}>
+          <Animated.View
+            style={[styles.overlayContainer, {
+              opacity: overlayAnim,
+              transform: [{ scale: overlayAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }]
+            }]}
+          >
             <Pressable onPress={handleCollapseSearch} style={styles.collapseArrow}>
               <View style={[styles.collapseIcon, isDark && styles.collapseIconDark]}>
                 <Text style={[styles.collapseIconText, isDark && styles.collapseIconTextDark]}>⌃</Text>
@@ -104,7 +128,7 @@ export default function DeckBuilderScreen() {
                 style={styles.suggestionList}
               />
             )}
-          </View>
+          </Animated.View>
         )}
 
         {/* Deck Cards ScrollView */}
@@ -152,7 +176,7 @@ const styles = StyleSheet.create({
     top: 65,
     left: 10,
     right: 10,
-    backgroundColor: '#e0e7ff', // light indigo for contrast
+    backgroundColor: '#e0e7ff',
     borderRadius: 12,
     borderTopWidth: 1,
     borderTopColor: '#c7d2fe',
