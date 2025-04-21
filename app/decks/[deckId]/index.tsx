@@ -1,3 +1,4 @@
+// DeckDetailScreen displays insights, matchups, and performance charts for a single deck
 import { useLocalSearchParams, Link } from 'expo-router';
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, Pressable, Dimensions, Alert } from 'react-native';
@@ -6,14 +7,14 @@ import { useFocusEffect } from 'expo-router';
 import { PieChart, BarChart } from 'react-native-chart-kit';
 import { useNavigation } from 'expo-router';
 import { getNormalizedOpponentStats, summarizeDeckPerformance, getWinRate } from '../../../utils/normalize';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../../../context/ThemeContext';
 
 export default function DeckDetailScreen() {
   const { deckId } = useLocalSearchParams();
   const [deck, setDeck] = useState<Deck | null>(null);
   const [filter, setFilter] = useState<'all' | 'win' | 'loss' | 'draw'>('all');
-
   const navigation = useNavigation();
+  const { isDark } = useTheme();
 
   useEffect(() => {
     if (deck) {
@@ -30,17 +31,6 @@ export default function DeckDetailScreen() {
     }, [deckId])
   );
 
-  useEffect(() => {
-    const loadDefaultFilter = async () => {
-      const stored = await AsyncStorage.getItem('defaultMatchFilter');
-      if (stored && ['all', 'win', 'loss', 'draw'].includes(stored)) {
-        setFilter(stored as 'all' | 'win' | 'loss' | 'draw');
-      }
-    };
-    loadDefaultFilter();
-  }, []);
-  
-
   const handleDeleteMatch = async (matchId: string) => {
     if (!deck) return;
     const updatedMatches = (deck.matches || []).filter(m => m.id !== matchId);
@@ -51,8 +41,8 @@ export default function DeckDetailScreen() {
 
   if (!deck) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Deck not found.</Text>
+      <View style={[styles.container, isDark && styles.darkBg]}>
+        <Text style={[styles.title, isDark && styles.darkText]}>Deck not found.</Text>
       </View>
     );
   }
@@ -81,10 +71,11 @@ export default function DeckDetailScreen() {
     <FlatList
       ListHeaderComponent={(
         <View>
-          <Text style={styles.format}>{deck.format}</Text>
+          <Text style={[styles.format, isDark && styles.darkText]}>{deck.format}</Text>
           <Link href={`/decks/${deck.id}/edit`}><Text style={styles.editLink}>✏️ Edit Deck</Text></Link>
 
-          <View style={styles.insightBlock}>
+          {/* Summary insight block */}
+          <View style={[styles.insightBlock, isDark && styles.darkBlock]}>
             <Text style={styles.insightHeader}>Match Insights</Text>
             <Text style={styles.insightText}>Matches Played: {stats.total}</Text>
             <Text style={styles.insightText}>Win Rate: {stats.winRate}%</Text>
@@ -96,6 +87,7 @@ export default function DeckDetailScreen() {
 
           <Link href={`/decks/${deck.id}/new-match`}><Text style={styles.addMatch}>+ Add Match</Text></Link>
 
+          {/* Pie chart for win/loss/draw */}
           {total > 0 && (
             <View style={styles.chartSection}>
               <Text style={styles.chartTitle}>Match Results Breakdown</Text>
@@ -121,7 +113,8 @@ export default function DeckDetailScreen() {
             </View>
           )}
 
-          <View style={styles.opponentBlock}>
+          {/* Most played opponent matchups */}
+          <View style={[styles.opponentBlock, isDark && styles.darkBlock]}>
             <Text style={styles.insightHeader}>Most Played Matchups</Text>
             {topMatchups.map((m) => {
               const total = m.wins + m.losses + m.draws;
@@ -139,6 +132,7 @@ export default function DeckDetailScreen() {
             </Link>
           </View>
 
+          {/* Bar chart for win rate per opponent */}
           {opponentChartData.length > 0 && (
             <View style={styles.chartSection}>
               <Text style={styles.chartTitle}>Win Rate by Opponent Deck</Text>
@@ -166,6 +160,7 @@ export default function DeckDetailScreen() {
             </View>
           )}
 
+          {/* Match filter buttons */}
           <View style={styles.filterRow}>
             {['all', 'win', 'loss', 'draw'].map((type) => (
               <Pressable
@@ -210,57 +205,44 @@ export default function DeckDetailScreen() {
         </View>
       )}
       ListEmptyComponent={<Text style={styles.empty}>No matches logged.</Text>}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, isDark && styles.darkBg]}
     />
   );
 }
-
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#f3f4f6', paddingBottom: 100 },
-  title: { fontSize: 24, fontWeight: 'bold' },
-  format: { fontSize: 16, color: '#666', marginBottom: 10 },
-  stats: { marginBottom: 10, fontSize: 14 },
-  addMatch: { color: '#3b82f6', fontWeight: 'bold', marginBottom: 10 },
-  matchCard: {
-    padding: 15,
-    backgroundColor: '#f9fafb',
-    borderRadius: 10,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6'
+  container: {
+    padding: 20,
+    backgroundColor: '#f3f4f6',
+    paddingBottom: 100,
   },
-  result: { fontWeight: 'bold', fontSize: 16, marginBottom: 4 },
-  opp: { color: '#333', marginBottom: 4 },
-  notes: { color: '#555', fontStyle: 'italic', marginBottom: 4 },
-  date: { color: '#999', fontSize: 12 },
-  matchHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  delete: { color: '#ef4444', fontWeight: 'bold', fontSize: 18, paddingLeft: 10 },
-  editLink: { color: '#3b82f6', fontWeight: 'bold', marginBottom: 10 },
-  empty: { textAlign: 'center', color: '#999', fontSize: 14, marginTop: 20 },
-  chartSection: { marginVertical: 20, paddingHorizontal: 20 },
-  chartTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 10 },
-  filterRow: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 10 },
-  filterButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 20,
+  darkBg: {
+    backgroundColor: '#0f172a',
   },
-  activeFilterButton: {
-    backgroundColor: '#3b82f6',
+  darkText: {
+    color: '#f3f4f6',
   },
-  filterText: {
+  title: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#374151',
   },
-  activeFilterText: {
-    color: 'white',
+  format: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 10,
+  },
+  editLink: {
+    color: '#3b82f6',
+    fontWeight: 'bold',
+    marginBottom: 10,
   },
   insightBlock: {
     backgroundColor: '#1e2d45',
     padding: 16,
     borderRadius: 12,
     marginTop: 16,
+  },
+  darkBlock: {
+    backgroundColor: '#1e293b',
   },
   insightHeader: {
     fontSize: 18,
@@ -272,6 +254,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#ffffff',
     marginBottom: 4,
+  },
+  addMatch: {
+    color: '#3b82f6',
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  chartSection: {
+    marginVertical: 20,
+    paddingHorizontal: 20,
+  },
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
   },
   opponentBlock: {
     backgroundColor: '#1b2a3a',
@@ -289,5 +286,69 @@ const styles = StyleSheet.create({
   viewAllText: {
     color: '#0e1a2b',
     fontWeight: '600',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 10,
+  },
+  filterButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 20,
+  },
+  activeFilterButton: {
+    backgroundColor: '#3b82f6',
+  },
+  filterText: {
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  activeFilterText: {
+    color: 'white',
+  },
+  matchCard: {
+    padding: 15,
+    backgroundColor: '#f9fafb',
+    borderRadius: 10,
+    marginBottom: 10,
+    borderLeftWidth: 4,
+    borderLeftColor: '#3b82f6',
+  },
+  matchHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  result: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  opp: {
+    color: '#333',
+    marginBottom: 4,
+  },
+  notes: {
+    color: '#555',
+    fontStyle: 'italic',
+    marginBottom: 4,
+  },
+  date: {
+    color: '#999',
+    fontSize: 12,
+  },
+  delete: {
+    color: '#ef4444',
+    fontWeight: 'bold',
+    fontSize: 18,
+    paddingLeft: 10,
+  },
+  empty: {
+    textAlign: 'center',
+    color: '#999',
+    fontSize: 14,
+    marginTop: 20,
   },
 });

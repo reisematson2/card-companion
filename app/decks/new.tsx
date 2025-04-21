@@ -3,10 +3,12 @@ import { View, Text, TextInput, Pressable, StyleSheet, SafeAreaView } from 'reac
 import { router, Stack } from 'expo-router';
 import { Deck, saveDeck, getDecks } from '../../utils/storage';
 import uuid from 'react-native-uuid';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function NewDeckScreen() {
   const [name, setName] = useState('');
   const [format, setFormat] = useState('');
+  const { isDark } = useTheme();
 
   const handleSave = async () => {
     if (!name || !format) return;
@@ -23,19 +25,21 @@ export default function NewDeckScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen, isDark && styles.screenDark]}>
       {/* ✅ Set native header title */}
       <Stack.Screen options={{ title: 'Create New Deck' }} />
       <View style={styles.container}>
         <TextInput
           placeholder="Deck Name"
-          style={styles.input}
+          placeholderTextColor={isDark ? '#ccc' : '#aaa'}
+          style={[styles.input, isDark && styles.inputDark]}
           value={name}
           onChangeText={setName}
         />
         <TextInput
           placeholder="Format (Standard, Modern, etc.)"
-          style={styles.input}
+          placeholderTextColor={isDark ? '#ccc' : '#aaa'}
+          style={[styles.input, isDark && styles.inputDark]}
           value={format}
           onChangeText={setFormat}
         />
@@ -52,6 +56,9 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#f3f4f6',
+  },
+  screenDark: {
+    backgroundColor: '#0f172a',
   },
   container: {
     padding: 20,
@@ -76,6 +83,11 @@ const styles = StyleSheet.create({
     elevation: 1,
     fontSize: 16,
     color: '#1f2937',
+  },
+  inputDark: {
+    backgroundColor: '#1f2937',
+    color: '#f3f4f6',
+    borderLeftColor: '#fbbf24',
   },
   button: {
     backgroundColor: '#fbbf24',

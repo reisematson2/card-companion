@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Switch, Pressable, Alert } from 'react-native';
 import { Stack } from 'expo-router';
 import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTheme } from '../context/ThemeContext';
 
 const SETTINGS_KEYS = {
   FILTER: 'defaultMatchFilter',
@@ -16,6 +17,7 @@ const SETTINGS_LABELS = {
 export default function SettingsScreen() {
   const [defaultFilter, setDefaultFilter] = useState<'all' | 'win' | 'loss' | 'draw'>('all');
   const [darkMode, setDarkMode] = useState(false);
+  const { isDark } = useTheme();
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -53,10 +55,10 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isDark && styles.containerDark]}>
       <Stack.Screen options={{ title: 'Settings' }} />
 
-      <Text style={styles.sectionTitle}>{SETTINGS_LABELS.FILTER}</Text>
+      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>{SETTINGS_LABELS.FILTER}</Text>
       <View style={styles.filterRow}>
         {['all', 'win', 'loss', 'draw'].map((type) => (
           <Pressable
@@ -74,7 +76,7 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.row}>
-        <Text style={styles.label}>{SETTINGS_LABELS.DARK_MODE}</Text>
+        <Text style={[styles.label, isDark && styles.textLight]}>{SETTINGS_LABELS.DARK_MODE}</Text>
         <Switch value={darkMode} onValueChange={toggleDarkMode} />
       </View>
 
@@ -90,6 +92,9 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#f3f4f6',
     flex: 1,
+  },
+  containerDark: {
+    backgroundColor: '#0f172a',
   },
   sectionTitle: {
     fontSize: 16,
@@ -140,5 +145,8 @@ const styles = StyleSheet.create({
   resetText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  textLight: {
+    color: '#f8fafc',
   },
 });

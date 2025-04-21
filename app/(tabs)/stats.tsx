@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BarChart, PieChart } from 'react-native-chart-kit';
 import { getDecks, Deck, Match } from '../../utils/storage';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useTheme } from '../../context/ThemeContext';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -11,6 +12,7 @@ export default function StatsScreen() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [filter, setFilter] = useState<'all' | 'win' | 'loss' | 'draw'>('all');
   const router = useRouter();
+  const { isDark } = useTheme();
 
   const fetchDeckData = useCallback(() => {
     getDecks().then((allDecks) => {
@@ -21,7 +23,7 @@ export default function StatsScreen() {
           deckName: deck.name,
         }))
       );
-      
+
       setMatches(allMatches);
     });
   }, []);
@@ -67,8 +69,8 @@ export default function StatsScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-      <Text style={styles.sectionTitle}>📊 Overall Stats</Text>
+    <ScrollView style={[styles.container, isDark && styles.containerDark]} contentContainerStyle={styles.scrollContent}>
+      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>📊 Overall Stats</Text>
 
       <View style={styles.chartWrapper}>
         <PieChart
@@ -92,19 +94,19 @@ export default function StatsScreen() {
         />
       </View>
 
-      <Text style={styles.sectionTitle}>📂 Deck Performance</Text>
+      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>📂 Deck Performance</Text>
       {decks.map((deck) => {
         const m = deck.matches || [];
         const wr = m.length > 0 ? Math.round((m.filter((m) => m.result === 'win').length / m.length) * 100) : 0;
         return (
-          <Pressable key={deck.id} style={styles.deckCard} onPress={() => router.push(`/decks/${deck.id}`)}>
-            <Text style={styles.deckTitle}>{deck.name}</Text>
-            <Text style={styles.deckStats}>Matches: {m.length} | Win Rate: {wr}%</Text>
+          <Pressable key={deck.id} style={[styles.deckCard, isDark && styles.deckCardDark]} onPress={() => router.push(`/decks/${deck.id}`)}>
+            <Text style={[styles.deckTitle, isDark && styles.textLight]}>{deck.name}</Text>
+            <Text style={[styles.deckStats, isDark && styles.textMuted]}>Matches: {m.length} | Win Rate: {wr}%</Text>
           </Pressable>
         );
       })}
 
-      <Text style={styles.sectionTitle}>🕒 Recent Matches</Text>
+      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>🕒 Recent Matches</Text>
       <View style={styles.filterRow}>
         {['all', 'win', 'loss', 'draw'].map((type) => (
           <Pressable
@@ -123,18 +125,18 @@ export default function StatsScreen() {
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5)
         .map((match, index) => (
-          <View key={index} style={styles.matchItem}>
-            <Text style={styles.result}>{match.result.toUpperCase()}</Text>
-            <Text style={styles.opp}>vs {match.opponentDeck} ({match.deckName})</Text>
-            <Text style={styles.date}>{new Date(match.date).toLocaleDateString()}</Text>
+          <View key={index} style={[styles.matchItem, isDark && styles.deckCardDark]}>
+            <Text style={[styles.result, isDark && styles.textLight]}>{match.result.toUpperCase()}</Text>
+            <Text style={[styles.opp, isDark && styles.textMuted]}>vs {match.opponentDeck} ({match.deckName})</Text>
+            <Text style={[styles.date, isDark && styles.textMuted]}>{new Date(match.date).toLocaleDateString()}</Text>
           </View>
         ))}
 
-      <Text style={styles.sectionTitle}>⭐ Highlights</Text>
-      <View style={styles.highlightBox}>
-        {bestDeck && <Text style={styles.highlight}>🔥 Best performing deck: {bestDeck.name} ({bestDeck.winRate.toFixed(1)}% WR)</Text>}
+      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>⭐ Highlights</Text>
+      <View style={[styles.highlightBox, isDark && styles.deckCardDark]}>
+        {bestDeck && <Text style={[styles.highlight, isDark && styles.textLight]}>🔥 Best performing deck: {bestDeck.name} ({bestDeck.winRate.toFixed(1)}% WR)</Text>}
         {worstOpponent && worstOpponent.name && (
-          <Text style={styles.highlight}>🧊 Toughest opponent: {worstOpponent.name} ({worstOpponent.winRate.toFixed(1)}% WR)</Text>
+          <Text style={[styles.highlight, isDark && styles.textLight]}>🧊 Toughest opponent: {worstOpponent.name} ({worstOpponent.winRate.toFixed(1)}% WR)</Text>
         )}
       </View>
     </ScrollView>
@@ -143,8 +145,11 @@ export default function StatsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f3f4f6' },
+  containerDark: { backgroundColor: '#0f172a' },
   scrollContent: { padding: 20, paddingBottom: 100 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e3a8a', marginTop: 20, marginBottom: 10 },
+  textLight: { color: '#f8fafc' },
+  textMuted: { color: '#cbd5e1' },
   chartWrapper: { alignItems: 'center', marginBottom: 20 },
   deckCard: {
     backgroundColor: '#ffffff',
@@ -155,6 +160,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
+  },
+  deckCardDark: {
+    backgroundColor: '#1e293b',
   },
   deckTitle: { fontSize: 16, fontWeight: '600', color: '#111827' },
   deckStats: { fontSize: 14, color: '#6b7280', marginTop: 4 },

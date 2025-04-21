@@ -5,11 +5,12 @@ import { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, SafeAreaView, FlatList } from 'react-native';
 import { Deck, getDecks } from '../../utils/storage';
 import { useNavigation } from '@react-navigation/native';
-
+import { useTheme } from '../../context/ThemeContext';
 
 export default function DeckListScreen() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const navigation = useNavigation();
+  const { isDark } = useTheme();
 
   useFocusEffect(
     useCallback(() => {
@@ -24,11 +25,11 @@ export default function DeckListScreen() {
 
     return (
       <Link href={`/decks/${item.id}`} asChild>
-        <Pressable style={styles.deckCard}>
+        <Pressable style={[styles.deckCard, isDark && styles.deckCardDark]}>
           <View>
-            <Text style={styles.deckName}>{item.name}</Text>
-            <Text style={styles.deckFormat}>{item.format}</Text>
-            <Text style={styles.deckStats}>
+            <Text style={[styles.deckName, isDark && styles.textLight]}>{item.name}</Text>
+            <Text style={[styles.deckFormat, isDark && styles.textMuted]}>{item.format}</Text>
+            <Text style={[styles.deckStats, isDark && styles.textMuted]}>
               {total} matches • Win Rate: {winRate}
             </Text>
           </View>
@@ -38,16 +39,16 @@ export default function DeckListScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen, isDark && styles.screenDark]}>
       <FlatList
         data={decks}
         keyExtractor={d => d.id}
         contentContainerStyle={styles.container}
         ListHeaderComponent={
           <View>
-            <Text style={styles.title}>Your Decks</Text>
+            <Text style={[styles.title, isDark && styles.textLight]}>Your Decks</Text>
             {decks.length === 0 && (
-              <Text style={styles.empty}>
+              <Text style={[styles.empty, isDark && styles.textMuted]}>
                 No decks found. Tap "+ Add Deck" to begin.
               </Text>
             )}
@@ -69,6 +70,9 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#f3f4f6',
+  },
+  screenDark: {
+    backgroundColor: '#0f172a',
   },
   container: {
     padding: 20,
@@ -99,6 +103,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
+  deckCardDark: {
+    backgroundColor: '#1e293b',
+  },
   deckName: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -112,6 +119,12 @@ const styles = StyleSheet.create({
   deckStats: {
     fontSize: 12,
     color: '#9ca3af',
+  },
+  textLight: {
+    color: '#f8fafc',
+  },
+  textMuted: {
+    color: '#cbd5e1',
   },
   empty: {
     color: '#6b7280',
