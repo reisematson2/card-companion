@@ -6,6 +6,7 @@ import { useFocusEffect } from 'expo-router';
 import { PieChart, BarChart } from 'react-native-chart-kit';
 import { useNavigation } from 'expo-router';
 import { getNormalizedOpponentStats, summarizeDeckPerformance, getWinRate } from '../../../utils/normalize';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function DeckDetailScreen() {
   const { deckId } = useLocalSearchParams();
@@ -28,6 +29,17 @@ export default function DeckDetailScreen() {
       });
     }, [deckId])
   );
+
+  useEffect(() => {
+    const loadDefaultFilter = async () => {
+      const stored = await AsyncStorage.getItem('defaultMatchFilter');
+      if (stored && ['all', 'win', 'loss', 'draw'].includes(stored)) {
+        setFilter(stored as 'all' | 'win' | 'loss' | 'draw');
+      }
+    };
+    loadDefaultFilter();
+  }, []);
+  
 
   const handleDeleteMatch = async (matchId: string) => {
     if (!deck) return;

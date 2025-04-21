@@ -1,5 +1,8 @@
 import { View, Text, Pressable, StyleSheet, SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
+import { useColorScheme } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from 'react';
 
 export default function WelcomeScreen() {
   return (
@@ -26,6 +29,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 30,
     alignItems: 'center',
+    backgroundColor: isDark ? '#0f172a' : '#f3f4f6',
   },
   logo: {
     fontSize: 60,
