@@ -12,6 +12,11 @@ export type Match = {
   notes?: string;
 };
 
+export type DeckVersion = {
+  id: string;
+  timestamp: string;
+  cards: { [name: string]: { card: any; quantity: number } };
+};
 
 
 export type Deck = {
@@ -19,7 +24,8 @@ export type Deck = {
   name: string;
   format: string;
   createdAt: string;
-  matches?: Match[]; // ⬅️ new field
+  matches: Match[];
+  versions?: DeckVersion[]; // ✅ Add this line
 };
 
 

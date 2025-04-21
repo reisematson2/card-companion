@@ -17,8 +17,9 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { searchScryfallCards } from '../../utils/scryfall';
 import { useTheme } from '../../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getDecks } from '../../utils/storage';
 import { Animated } from 'react-native';
+import uuid from 'react-native-uuid';
+import { saveDeck, getDecks } from '../../utils/storage';
 
 export default function DeckBuilderScreen() {
   const { deckId } = useLocalSearchParams();
@@ -57,6 +58,34 @@ export default function DeckBuilderScreen() {
       };
     });
   };
+
+  // Save current deck state as a version
+const handleSaveDeck = async () => {
+  if (!deckId) return;
+  const decks = await getDecks();
+  const deckIndex = decks.findIndex(d => d.id === deckId);
+  if (deckIndex === -1) return;
+
+  const baseDeck = decks[deckIndex];
+  const versionId = uuid.v4().toString();
+  const timestamp = new Date().toISOString();
+
+  const version = {
+    id: versionId,
+    timestamp,
+    cards: deckCards,
+  };
+
+  const updatedDeck = {
+    ...baseDeck,
+    versions: [...(baseDeck.versions || []), version],
+  };
+
+  decks[deckIndex] = updatedDeck;
+  await saveDeck(updatedDeck);
+  Alert.alert('Deck Saved', 'Your changes have been saved as a new version.');
+};
+
 
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
@@ -144,6 +173,9 @@ export default function DeckBuilderScreen() {
             </View>
           ))}
         </ScrollView>
+        <Pressable style={styles.saveButton} onPress={handleSaveDeck}>
+  <Text style={styles.saveText}>💾 Save Deck</Text>
+</Pressable>
       </View>
     </KeyboardAvoidingView>
   );
@@ -260,5 +292,18 @@ const styles = StyleSheet.create({
   },
   setDark: {
     color: '#94a3b8',
+  },
+  saveButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginVertical: 12,
+    alignItems: 'center',
+  },
+  saveText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
