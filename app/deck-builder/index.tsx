@@ -1,15 +1,44 @@
-import { useState } from 'react';
-import { View, Text, TextInput, FlatList, Pressable, Image, StyleSheet, ActivityIndicator } from 'react-native';
-import { Stack } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { View, Text, TextInput, FlatList, Pressable, Image, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { searchScryfallCards } from '../../utils/scryfall';
 import { useTheme } from '../../context/ThemeContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getDecks } from '../../utils/storage';
 
 export default function DeckBuilderScreen() {
+  const { deckId } = useLocalSearchParams();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [deckCards, setDeckCards] = useState<{ [name: string]: { card: any; quantity: number } }>({});
+  const [deckName, setDeckName] = useState('');
   const { isDark } = useTheme();
+
+  useEffect(() => {
+    if (deckId) {
+      getDecks().then((decks) => {
+        const deck = decks.find((d) => d.id === deckId);
+        if (deck && deck.cards) {
+          const loadedCards: typeof deckCards = {};
+          for (const card of deck.cards) {
+            const key = card.name.toLowerCase();
+            loadedCards[key] = {
+              card: {
+                id: card.id,
+                name: card.name,
+                image_uris: { small: card.image },
+                set_name: card.set,
+              },
+              quantity: card.quantity,
+            };
+          }
+          setDeckCards(loadedCards);
+          setDeckName(deck.name);
+        }
+      });
+    }
+  }, [deckId]);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -33,9 +62,53 @@ export default function DeckBuilderScreen() {
     });
   };
 
+  const handleAdjustQuantity = (cardName: string, amount: number) => {
+    const key = cardName.toLowerCase();
+    setDeckCards((prev) => {
+      const existing = prev[key];
+      if (!existing) return prev;
+      const newQty = existing.quantity + amount;
+      if (newQty <= 0) {
+        const copy = { ...prev };
+        delete copy[key];
+        return copy;
+      }
+      return {
+        ...prev,
+        [key]: {
+          ...existing,
+          quantity: newQty,
+        },
+      };
+    });
+  };
+
+  const handleSaveDeck = async () => {
+    const deckArray = Object.values(deckCards).map((entry) => ({
+      name: entry.card.name,
+      quantity: entry.quantity,
+      id: entry.card.id,
+      image: entry.card.image_uris?.small,
+      set: entry.card.set_name,
+    }));
+    try {
+      await AsyncStorage.setItem('deck_in_progress', JSON.stringify(deckArray));
+      Alert.alert('Deck saved!', 'Your deck has been stored temporarily.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save deck.');
+    }
+  };
+
+  const handleClearDeck = () => {
+    Alert.alert('Clear Deck', 'Are you sure you want to remove all cards?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: () => setDeckCards({}) },
+    ]);
+  };
+
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
-      <Stack.Screen options={{ title: 'Deck Builder' }} />
+      <Stack.Screen options={{ title: deckId ? 'Edit Deck' : 'Deck Builder' }} />
 
       <TextInput
         style={[styles.input, isDark && styles.inputDark]}
@@ -49,7 +122,9 @@ export default function DeckBuilderScreen() {
 
       {Object.keys(deckCards).length > 0 && (
         <View style={styles.deckSummary}>
-          <Text style={[styles.sectionTitle, isDark && styles.textLight]}>📥 Deck In Progress</Text>
+          <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
+            {deckId ? `📝 Editing ${deckName}` : '📥 Deck In Progress'}
+          </Text>
           <FlatList
             data={Object.values(deckCards)}
             keyExtractor={(item) => item.card.id}
@@ -58,7 +133,16 @@ export default function DeckBuilderScreen() {
                 <Image source={{ uri: item.card.image_uris?.small }} style={styles.image} />
                 <View style={styles.info}>
                   <Text style={[styles.name, isDark && styles.nameDark]}>{item.card.name}</Text>
-                  <Text style={[styles.set, isDark && styles.setDark]}>{item.card.set_name} — x{item.quantity}</Text>
+                  <Text style={[styles.set, isDark && styles.setDark]}>{item.card.set_name}</Text>
+                </View>
+                <View style={styles.controls}>
+                  <Pressable onPress={() => handleAdjustQuantity(item.card.name, -1)}>
+                    <Text style={styles.controlBtn}>−</Text>
+                  </Pressable>
+                  <Text style={[styles.qtyText, isDark && styles.textLight]}>{item.quantity}</Text>
+                  <Pressable onPress={() => handleAdjustQuantity(item.card.name, 1)}>
+                    <Text style={styles.controlBtn}>+</Text>
+                  </Pressable>
                 </View>
               </View>
             )}
@@ -66,6 +150,15 @@ export default function DeckBuilderScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 10 }}
           />
+
+          <View style={styles.actionRow}>
+            <Pressable style={styles.saveButton} onPress={handleSaveDeck}>
+              <Text style={styles.saveText}>💾 Save</Text>
+            </Pressable>
+            <Pressable style={styles.clearButton} onPress={handleClearDeck}>
+              <Text style={styles.clearText}>🗑️ Clear</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -90,6 +183,9 @@ export default function DeckBuilderScreen() {
     </View>
   );
 }
+
+// (Styles remain unchanged from previous version)
+
 
 const styles = StyleSheet.create({
   container: {
@@ -159,6 +255,46 @@ const styles = StyleSheet.create({
   },
   setDark: {
     color: '#cbd5e1',
+  },
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  controlBtn: {
+    fontSize: 22,
+    paddingHorizontal: 8,
+    color: '#1e3a8a',
+    fontWeight: 'bold',
+  },
+  qtyText: {
+    fontSize: 16,
+    marginHorizontal: 4,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  saveButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  clearButton: {
+    backgroundColor: '#ef4444',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  saveText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  clearText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
   textLight: {
     color: '#f8fafc',
