@@ -1,152 +1,123 @@
-import { View, Text, StyleSheet, Switch, Pressable, Alert } from 'react-native';
+import React from 'react';
+import { SafeAreaView, View, Text, Pressable, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
-import { useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
-
-const SETTINGS_KEYS = {
-  FILTER: 'defaultMatchFilter',
-  DARK_MODE: 'useDarkMode',
-};
-
-const SETTINGS_LABELS = {
-  FILTER: 'Default Match Filter',
-  DARK_MODE: 'Use Dark Mode',
-};
+import { useSettings } from '../../context/SettingsContext';
 
 export default function SettingsScreen() {
-  const [defaultFilter, setDefaultFilter] = useState<'all' | 'win' | 'loss' | 'draw'>('all');
-  const [darkMode, setDarkMode] = useState(false);
-  const { isDark } = useTheme();
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      const filter = await AsyncStorage.getItem(SETTINGS_KEYS.FILTER);
-      const dark = await AsyncStorage.getItem(SETTINGS_KEYS.DARK_MODE);
-      if (filter) setDefaultFilter(filter);
-      if (dark === 'true') setDarkMode(true);
-    };
-    loadSettings();
-  }, []);
-
-  const saveFilterSetting = async (value) => {
-    setDefaultFilter(value);
-    await AsyncStorage.setItem(SETTINGS_KEYS.FILTER, value);
-  };
-
-  const toggleDarkMode = async () => {
-    const next = !darkMode;
-    setDarkMode(next);
-    await AsyncStorage.setItem(SETTINGS_KEYS.DARK_MODE, next.toString());
-  };
-
-  const confirmReset = () => {
-    Alert.alert('Reset App Data', 'Are you sure you want to delete all decks and matches?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Reset',
-        style: 'destructive',
-        onPress: async () => {
-          await AsyncStorage.clear();
-          Alert.alert('Reset Complete', 'All app data has been cleared.');
-        },
-      },
-    ]);
-  };
+  // Pull in dark mode controls
+  const { isDark, toggleTheme } = useTheme();
+  // Pull in deck display style controls
+  const { displayStyle, setDisplayStyle } = useSettings();
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark]}>
+    <SafeAreaView style={[styles.container, isDark && styles.containerDark]}>
+      {/* Set header title */}
       <Stack.Screen options={{ title: 'Settings' }} />
 
-      <Text style={[styles.sectionTitle, isDark && styles.textLight]}>{SETTINGS_LABELS.FILTER}</Text>
-      <View style={styles.filterRow}>
-        {['all', 'win', 'loss', 'draw'].map((type) => (
-          <Pressable
-            key={type}
-            onPress={() => saveFilterSetting(type)}
-            style={[styles.filterButton, defaultFilter === type && styles.activeFilterButton]}
-          >
-            <Text
-              style={[styles.filterText, defaultFilter === type && styles.activeFilterText]}
-            >
-              {type.toUpperCase()}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
+      {/* Dark Mode Toggle */}
       <View style={styles.row}>
-        <Text style={[styles.label, isDark && styles.textLight]}>{SETTINGS_LABELS.DARK_MODE}</Text>
-        <Switch value={darkMode} onValueChange={toggleDarkMode} />
+        <Text style={[styles.label, isDark && styles.textDark]}>Dark Mode</Text>
+        <Pressable onPress={toggleTheme} style={styles.toggleButton}>
+          <Text style={[styles.toggleText, isDark ? styles.toggleTextActive : null]}>
+            {isDark ? 'On' : 'Off'}
+          </Text>
+        </Pressable>
       </View>
 
-      <Pressable style={styles.resetButton} onPress={confirmReset}>
-        <Text style={styles.resetText}>Reset App Data</Text>
-      </Pressable>
-    </View>
+      {/* Deck Display Style Toggle */}
+      <Text style={[styles.sectionHeader, isDark && styles.textDark]}>
+        Deck Display Style
+      </Text>
+      <View style={styles.row}>
+        {/* Default tile view */}
+        <Pressable
+          onPress={() => setDisplayStyle('default')}
+          style={[
+            styles.toggleButton,
+            displayStyle === 'default' && styles.toggleButtonActive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.toggleText,
+              displayStyle === 'default' && styles.toggleTextActive,
+              isDark && styles.textDark,
+            ]}
+          >
+            Default
+          </Text>
+        </Pressable>
+        {/* Compact list view */}
+        <Pressable
+          onPress={() => setDisplayStyle('list')}
+          style={[
+            styles.toggleButton,
+            displayStyle === 'list' && styles.toggleButtonActive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.toggleText,
+              displayStyle === 'list' && styles.toggleTextActive,
+              isDark && styles.textDark,
+            ]}
+          >
+            List
+          </Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: '#f3f4f6',
     flex: 1,
+    backgroundColor: '#f3f4f6',
+    padding: 20,
   },
   containerDark: {
     backgroundColor: '#0f172a',
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#1e3a8a',
-  },
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomColor: '#ccc',
-    borderBottomWidth: 1,
+    justifyContent: 'space-between',
+    marginVertical: 12,
   },
   label: {
     fontSize: 16,
-    color: '#111827',
+    color: '#1f2937',
   },
-  filterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+  textDark: {
+    color: '#f9fafb',
   },
-  filterButton: {
-    backgroundColor: '#e5e7eb',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+  toggleButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#888',
+    borderRadius: 6,
   },
-  activeFilterButton: {
+  toggleButtonActive: {
     backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
   },
-  filterText: {
-    color: '#374151',
-    fontWeight: '600',
+  toggleText: {
+    color: '#1f2937',
+    fontSize: 16,
+    fontWeight: '500',
   },
-  activeFilterText: {
-    color: 'white',
-  },
-  resetButton: {
-    marginTop: 30,
-    padding: 14,
-    borderRadius: 8,
-    backgroundColor: '#ef4444',
-    alignItems: 'center',
-  },
-  resetText: {
-    color: 'white',
+  toggleTextActive: {
+    color: '#fff',
     fontWeight: 'bold',
   },
-  textLight: {
-    color: '#f8fafc',
+  sectionHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 8,
+    color: '#374151',
   },
 });
