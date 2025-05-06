@@ -30,7 +30,7 @@ export default function EditMatchScreen() {
         setNotes(foundMatch.notes || '');
       }
     });
-  }, [deckId, matchId]);
+  }, [deckId, matchId, setDeck, setMatch]);
 
   const determineResult = (wins: number, losses: number): 'win' | 'loss' | 'draw' => {
     if (wins > losses) return 'win';

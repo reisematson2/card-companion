@@ -21,9 +21,9 @@ export default function VersionHistoryScreen() {
       }
     };
     fetchVersions();
-  }, [deckId]);
+  }, [deckId, setDeck, setVersions]);
 
-  const handleRevert = async (versionId) => {
+  const handleRevert = async (versionId: string) => {
     const decks = await getDecks();
     const index = decks.findIndex((d) => d.id === deckId);
     if (index === -1) return;

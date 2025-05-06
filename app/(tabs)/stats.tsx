@@ -28,7 +28,9 @@ export default function StatsScreen() {
     });
   }, []);
 
-  useEffect(fetchDeckData, []);
+  useEffect(() => {
+    fetchDeckData();
+  }, [fetchDeckData]);
   useFocusEffect(fetchDeckData);
 
   const total = matches.length;

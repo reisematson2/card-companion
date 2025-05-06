@@ -31,7 +31,7 @@ export default function MatchupsScreen() {
       setMatchups(sorted);
     };
     loadMatchups();
-  }, [deckId]);
+  }, [deckId, setDeckName, setMatchups]);
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>

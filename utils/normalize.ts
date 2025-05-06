@@ -5,7 +5,7 @@
  * using normalized deck names, but preserves the original casing
  * for display.
  */
-export function getNormalizedOpponentStats(matches) {
+export function getNormalizedOpponentStats(matches: Match[]): OpponentStats[] {
   const opponentStats = new Map();
 
   for (const match of matches || []) {
@@ -33,7 +33,7 @@ export function getNormalizedOpponentStats(matches) {
 /**
  * Calculates win rate from wins, losses, and draws.
  */
-export function getWinRate(wins, losses, draws) {
+export function getWinRate(wins: number, losses: number, draws: number): number {
   const total = wins + losses + draws;
   return total > 0 ? parseFloat(((wins / total) * 100).toFixed(1)) : 0;
 }
@@ -41,7 +41,7 @@ export function getWinRate(wins, losses, draws) {
 /**
  * Groups matches by ISO date string (yyyy-mm-dd)
  */
-export function groupMatchesByDate(matches) {
+export function groupMatchesByDate(matches: Match[]): Record<string, Match[]> {
   const groups = {};
   for (const match of matches || []) {
     const dateKey = new Date(match.date).toISOString().split('T')[0];
@@ -54,7 +54,7 @@ export function groupMatchesByDate(matches) {
 /**
  * Produces a high-level summary of a deck's match performance.
  */
-export function summarizeDeckPerformance(matches) {
+export function summarizeDeckPerformance(matches: Match[]): PerformanceSummary {
   const sorted = [...(matches || [])].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );

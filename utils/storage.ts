@@ -12,8 +12,6 @@ export type Match = {
   notes?: string;
 };
 
-const DECKS_KEY = '@card_companion_decks';
-
 export type DeckCardEntry = { card: any; quantity: number; };
 export type DeckVersion = { id: string; timestamp: string; cards: { main: Record<string,DeckCardEntry>; side: Record<string,DeckCardEntry> } };
 

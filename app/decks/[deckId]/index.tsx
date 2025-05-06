@@ -20,7 +20,7 @@ export default function DeckDetailScreen() {
     if (deck) {
       navigation.setOptions({ title: deck.name });
     }
-  }, [deck]);
+  }, [deck, navigation]);
 
   useEffect(() => {
     if (!deckId) return;
@@ -28,13 +28,11 @@ export default function DeckDetailScreen() {
       const found = decks.find((d) => d.id === deckId);
       if (found) {
         setDeck(found);
-        // since getDecks() now migrates old decks, we can safely do:
         setMainCards(found.cards.main);
         setSideCards(found.cards.side);
       }
     });
-  }, [deckId]);
-  
+  }, [deckId, setMainCards, setSideCards]);
 
   const handleDeleteMatch = async (matchId: string) => {
     if (!deck) return;

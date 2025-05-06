@@ -45,7 +45,7 @@ export default function NewMatchScreen() {
       setDeck(foundDeck);
     };
     fetchDeck();
-  }, [deckId]);
+  }, [deckId, setDeck]);
 
   useEffect(() => {
     if (!deck) return;
@@ -60,7 +60,7 @@ export default function NewMatchScreen() {
     }
 
     setSuggestions(Array.from(map.values()));
-  }, [deck]);
+  }, [deck, setSuggestions]);
 
   useEffect(() => {
     if (!opponentDeck.trim()) {
